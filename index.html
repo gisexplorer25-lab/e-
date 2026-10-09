@@ -163,7 +163,7 @@ function clean(d){
   codes:(Array.isArray(x.codes)?x.codes:[]).map(k=>({id:String(k.id||uid()),name:String(k.name||"").trim(),shortCode:String(k.shortCode==null?"":k.shortCode),description:String(k.description||"")}))});
  const usr=u=>Object.assign({id:String(u.id||uid()),name:String(u.name||""),username:String(u.username||""),status:u.status==="active"?"active":"inactive"},
   u.edit?{edit:true}:{},u.authUid?{authEmail:String(u.authEmail||""),authUid:String(u.authUid)}:{},ac(u));
- return Object.assign({users:d.users.map(usr),categories:d.categories.map(cat),settings:{}},d._dirty?{_dirty:true}:{})}
+ return Object.assign({users:d.users.map(usr),categories:d.categories.map(cat),settings:{},log:(Array.isArray(d.log)?d.log:[]).slice(-150).map(e=>({id:String(e.id||uid()),t:String(e.t||""),by:String(e.by||""),a:String(e.a||""),c:String(e.c||""),k:String(e.k||""),o:String(e.o==null?"":e.o),n:String(e.n==null?"":e.n),on:String(e.on||"")}))},d._dirty?{_dirty:true}:{})}
 /* ---- password hashing (PBKDF2-SHA256 + salt): never store/publish plain passwords ---- */
 const hex=b=>[...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,"0")).join("");
 const rnd=()=>hex(crypto.getRandomValues(new Uint8Array(12)));
@@ -203,11 +203,11 @@ async function getDoc(n){try{
 async function fetchRemote(om){
  const [c,u]=await Promise.all([getDoc("main"),om?Promise.resolve(null):getDoc("users")]);
  if(!c||(!om&&!u))return null;
- let cats=null,users=null;
- try{if(c.t){const j=JSON.parse(c.t);if(Array.isArray(j.categories))cats=j.categories;if(Array.isArray(j.users))users=j.users}
+ let cats=null,users=null,log=null;
+ try{if(c.t){const j=JSON.parse(c.t);if(Array.isArray(j.categories))cats=j.categories;if(Array.isArray(j.log))log=j.log;if(Array.isArray(j.users))users=j.users}
   if(u&&u.t){const j=JSON.parse(u.t);if(Array.isArray(j.users))users=j.users}}catch(e){return null}
- return{c:c,u:u,cats:cats,users:users,om:!!om}}
-const fromRemote=r=>clean({users:r.users||(S&&S.users)||[],categories:r.cats||[]});
+ return{c:c,u:u,cats:cats,users:users,log:log,om:!!om}}
+const fromRemote=r=>clean({users:r.users||(S&&S.users)||[],categories:r.cats||[],log:r.log||[]});
 function setRem(r){rem.c={t:r.c.t||"",ut:r.c.ut||null};if(!r.om&&r.u)rem.u={t:r.u.t||"",ut:r.u.ut||null,e:r.u.e||""}}
 /* 3-way merge: يطبق تعديلاتي (mine مقابل base) فوق آخر نسخة على السيرفر (theirs) */
 function merge(base,mine,theirs){
@@ -224,6 +224,9 @@ function merge(base,mine,theirs){
   oc.codes=oc.codes.filter(k=>!(BC.has(k.id)&&!mk.has(k.id)))}
  for(const id of B.keys())if(!M.has(id)){const i=out.findIndex(c=>c.id===id);if(i>=0)out.splice(i,1)}
  return out}
+function mergeLog(base,mine,theirs){const mi=new Set(mine.map(e=>e.id)),bi=new Set(base.map(e=>e.id)),ti=new Set(theirs.map(e=>e.id));
+ return theirs.filter(e=>!(bi.has(e.id)&&!mi.has(e.id))).concat(mine.filter(e=>!ti.has(e.id)&&!bi.has(e.id))).sort((a,b)=>String(a.t).localeCompare(String(b.t))).slice(-150)}
+function logAct(e){if(!session||session.role!=="user")return;S.log=S.log||[];S.log.push(Object.assign({id:uid(),t:new Date().toISOString(),by:session.name},e));if(S.log.length>150)S.log=S.log.slice(-150)}
 async function putDoc(n,fields,idt,ut,pre){
  const f=Object.assign({updated:{stringValue:new Date().toISOString()}},fields);
  const q=Object.keys(f).map(k=>"updateMask.fieldPaths="+k).join("&")+(pre?(ut?"&currentDocument.updateTime="+encodeURIComponent(ut):"&currentDocument.exists=false"):"");
@@ -237,13 +240,16 @@ async function pushOnce(idt){
   const ed={};S.users.forEach(u=>{if(u.edit&&u.status==="active"&&u.authUid)ed[u.authUid]={booleanValue:true}});
   const uT=JSON.stringify({users:S.users}),eT=Object.keys(ed).sort().join(",");
   if(uT!==rem.u.t||eT!==rem.u.e){const r=await putDoc("users",{json:{stringValue:uT},editors:{mapValue:{fields:ed}}},idt,null,false);rem.u={t:uT,ut:r.ut,e:eT}}}
- const cT=JSON.stringify({categories:S.categories});
+ const cT=JSON.stringify({categories:S.categories,log:S.log||[]});
  if(cT!==rem.c.t){
   const r=await putDoc("main",{json:{stringValue:cT}},idt,rem.c.ut,true);
   if(r.conflict){
    const f=await fetchRemote(true);if(!f)throw{message:"تعذر الاتصال بالإنترنت"};
-   let base=[];try{base=JSON.parse(rem.c.t||"{}").categories||[]}catch(e){}
-   S.categories=merge(base,S.categories,f.cats||[]);rem.c={t:f.c.t||"",ut:f.c.ut||null};save(true);return false}
+   let base=[],bl=[];try{const bj=JSON.parse(rem.c.t||"{}");base=bj.categories||[];bl=bj.log||[]}catch(e){}
+   {const bi=base.map(c=>c.id),mi=S.categories.map(c=>c.id),out=merge(base,S.categories,f.cats||[]);
+    if(JSON.stringify(bi.filter(x=>mi.includes(x)))!==JSON.stringify(mi.filter(x=>bi.includes(x)))){const pos=new Map(mi.map((x,i)=>[x,i]));out.sort((a,b)=>(pos.has(a.id)?pos.get(a.id):1e9)-(pos.has(b.id)?pos.get(b.id):1e9))}
+    S.categories=out;S.log=mergeLog(bl,S.log||[],f.log||[])}
+   rem.c={t:f.c.t||"",ut:f.c.ut||null};save(true);return false}
   rem.c={t:cT,ut:r.ut}}
  return true}
 function schedulePush(){clearTimeout(pushT);pushT=setTimeout(pushRemote,500)}
@@ -272,10 +278,11 @@ async function load(){
  try{await migrate(S)}catch(e){toast("تعذر تجهيز كلمات المرور — افتح الصفحة عبر https","err")}
  save(true)}
 async function poll(){
- if(S._dirty||isAdm()||document.hidden||pushing||$("#modal").innerHTML)return;
+ if(S._dirty||(isAdm()&&page!=="log")||document.hidden||pushing||$("#modal").innerHTML)return;
  const om=(++pollN%5)!==0,r=await fetchRemote(om);
  if(!r||!r.cats||(r.c.t===rem.c.t&&(om||(r.u.t===rem.u.t&&r.u.e===rem.u.e))))return;
  setRem(r);S=fromRemote(r);await migrate(S);save(true);
+ if(isAdm()){render();return}
  if(session&&session.role==="user"){const u=S.users.find(x=>x.id===session.uid);
   if(!u||u.status!=="active"){act("logout");toast("تم إيقاف هذا الحساب","err");return}
   if(session.canEdit&&!u.edit){session.canEdit=false;session.edit=false;render();toast("تم إلغاء صلاحية التعديل","err")}
@@ -370,16 +377,19 @@ function userView(){
 
 /* ----- Admin ----- */
 function adminView(){
- const nav=[["dash","▦ Dashboard"],["cats","📁 Categories"],["codes","# Short Codes"],["users","👤 Users"],["settings","⚙ Settings"]];
+ const nav=[["dash","▦ Dashboard"],["cats","📁 Categories"],["codes","# Short Codes"],["users","👤 Users"],["log","📋 Activity"],["settings","⚙ Settings"]];
  const side=`<div class="side${menu?" open":""}"><h2>Short Code Assistant</h2>${nav.map(n=>`<a class="${page===n[0]?"on":""}" data-act="nav" data-id="${n[0]}">${n[1]}</a>`).join("")}<div class="sp"></div><a data-act="logout">⎋ Logout</a></div>`;
  $("#app").innerHTML=`<div class="top"><button data-act="menu">☰</button><b>Short Code Assistant</b></div><div class="shell">${side}<div class="main"><div id="syncbar">${syncHTML()}</div>${adminPage()}</div></div>`}
 function adminPage(){
  if(page==="dash"){const tc=allCodes().length,au=S.users.filter(u=>u.status==="active").length;
   return`<div class="hd"><h2>Dashboard</h2></div><div class="stats">${[["Categories",S.categories.length],["Short Codes",tc],["Users",S.users.length],["Active Users",au]].map(s=>`<div class="st"><b>${s[1]}</b><span>${s[0]}</span></div>`).join("")}</div>`}
- if(page==="cats")return`<div class="hd"><h2>Categories</h2><button class="btn" data-act="addcat">+ Add Category</button></div><div class="tw">${S.categories.length?`<table><tr><th>Category Name</th><th>Description</th><th>Codes</th><th>Created</th><th>Actions</th></tr>${S.categories.map(c=>`<tr><td>${esc(c.name)}</td><td>${esc(c.description)}</td><td>${c.codes.length}</td><td>${esc(c.created||"")}</td><td><button class="btn sm" data-act="editcat" data-id="${c.id}">Edit</button><button class="btn rd sm" data-act="delcat" data-id="${c.id}">Delete</button></td></tr>`).join("")}</table>`:'<div class="empty">لا توجد فئات.</div>'}</div>`;
+ if(page==="cats")return`<div class="hd"><h2>Categories</h2><button class="btn" data-act="addcat">+ Add Category</button></div><div class="tw">${S.categories.length?`<table><tr><th>Order</th><th>Category Name</th><th>Description</th><th>Codes</th><th>Created</th><th>Actions</th></tr>${S.categories.map((c,i)=>`<tr><td style="white-space:nowrap"><button class="btn gh sm" data-act="catup" data-id="${c.id}"${i?"":" disabled"}>▲</button> <button class="btn gh sm" data-act="catdown" data-id="${c.id}"${i<S.categories.length-1?"":" disabled"}>▼</button></td><td>${esc(c.name)}</td><td>${esc(c.description)}</td><td>${c.codes.length}</td><td>${esc(c.created||"")}</td><td><button class="btn sm" data-act="editcat" data-id="${c.id}">Edit</button><button class="btn rd sm" data-act="delcat" data-id="${c.id}">Delete</button></td></tr>`).join("")}</table>`:'<div class="empty">لا توجد فئات.</div>'}</div>`;
  if(page==="codes"){const rows=allCodes().filter(x=>!fcat||x.cat.id===fcat);
   return`<div class="hd"><h2>Short Codes</h2><div class="row"><select class="btn gh" data-chg="fcat"><option value="">كل الفئات</option>${S.categories.map(c=>`<option value="${c.id}"${fcat===c.id?" selected":""}>${esc(c.name)}</option>`).join("")}</select><button class="btn" data-act="addcode">+ Add Code</button></div></div><div class="tw">${rows.length?`<table><tr><th>Category</th><th>Code Name</th><th>Short Code</th><th>Actions</th></tr>${rows.map(x=>`<tr><td>${esc(x.cat.name)}</td><td>${esc(x.k.name)}</td><td class="ltr">${esc(x.k.shortCode)}</td><td><button class="btn sm" data-act="editcode" data-id="${x.k.id}">Edit</button><button class="btn rd sm" data-act="delcode" data-id="${x.k.id}">Delete</button></td></tr>`).join("")}</table>`:'<div class="empty">لا توجد أكواد.</div>'}</div>`}
  if(page==="users")return`<div class="hd"><h2>Users</h2><button class="btn" data-act="adduser">+ Add User</button></div><div class="tw">${S.users.length?`<table><tr><th>Name</th><th>Username</th><th>Status</th><th>Edit Codes</th><th>Actions</th></tr>${S.users.map(u=>`<tr><td>${esc(u.name)}</td><td class="ltr">${esc(u.username)}</td><td><span class="badge ${u.status==="active"?"a":"i"}">${u.status==="active"?"Active":"Inactive"}</span></td><td>${u.edit?'<span class="badge a">✎ تعديل</span>':"—"}</td><td><button class="btn sm" data-act="edituser" data-id="${u.id}">Edit</button><button class="btn gr sm" data-act="toguser" data-id="${u.id}">${u.status==="active"?"Disable":"Enable"}</button><button class="btn rd sm" data-act="deluser" data-id="${u.id}">Delete</button></td></tr>`).join("")}</table>`:'<div class="empty">لا يوجد مستخدمون.</div>'}</div>`;
+ if(page==="log"){const L=(S.log||[]).slice().reverse(),q=t=>"«"+esc(t)+"»",fmt=t=>{const d=new Date(t);return isNaN(d)?"":d.toLocaleString("en-GB",{hour12:false})};
+  const tx=e=>e.a==="addFolder"?"أضاف فولدر "+q(e.c):e.a==="addCode"?"أضاف كود "+q(e.k)+' <span class="ltr">('+esc(e.n)+")</span> في فولدر "+q(e.c):e.a==="editCode"?"عدّل كود "+q(e.on&&e.on!==e.k?e.on+" ← "+e.k:e.k)+" في "+q(e.c)+(e.o!==e.n?' <span class="ltr">'+esc(e.o)+" → "+esc(e.n)+"</span>":""):esc(e.a);
+  return`<div class="hd"><h2>Activity</h2><div class="row"><button class="btn gh" data-act="logref">⟳ Refresh</button><button class="btn rd" data-act="logclr">Clear Log</button></div></div><div class="tw">${L.length?`<table><tr><th>الوقت</th><th>الموظف</th><th>العملية</th></tr>${L.map(e=>`<tr><td class="ltr">${esc(fmt(e.t))}</td><td>${esc(e.by)}</td><td>${tx(e)}</td></tr>`).join("")}</table>`:'<div class="empty">لا توجد تعديلات من الموظفين حتى الآن.</div>'}</div>`}
  if(page==="settings")return`<div class="hd"><h2>Settings</h2></div><div class="card"><h3>الاتصال بـ Firebase</h3><p style="margin-bottom:12px;color:var(--mut);line-height:1.9;font-size:.9rem">المشروع: <b class="ltr">${esc(FB.projectId)}</b><br>حساب الأدمن: <b class="ltr">${esc(tok?tok.email:"")}</b><br>أي تعديل بيتحفظ تلقائيًا ويظهر للموظفين خلال دقيقة. لتغيير كلمة مرور الأدمن: Firebase Console ← Authentication.</p><div class="row" style="justify-content:flex-start;flex-wrap:wrap"><button class="btn gr" data-act="retry">Save Now</button><button class="btn gh" data-act="discard">Reload From Server</button></div></div><div class="card"><h3>نسخ احتياطي</h3><p style="margin-bottom:12px;color:var(--mut);line-height:1.7;font-size:.9rem">Export Backup: ملف JSON بكل البيانات. Import Backup: يستبدل البيانات الحالية ويحفظها على Firebase فتظهر للجميع.</p><div class="row" style="flex-wrap:wrap;justify-content:flex-start"><button class="btn" data-act="expjson">⬇ Export Backup</button><button class="btn gh" data-act="impjson">⬆ Import Backup</button></div><input type="file" id="impf" accept=".json,application/json" hidden></div><div class="card"><h3>Reset All Data</h3><p style="margin-bottom:12px;color:var(--mut)">حذف جميع الفئات والأكواد والمستخدمين (من Firebase أيضًا).</p><button class="btn rd" data-act="reset">Reset All Data</button></div>`;
  return""}
 
@@ -390,7 +400,11 @@ function act(a,id){
  case"close":closeModal();break;
  case"logout":closePop();q="";tok=null;session=null;ucat=ucode=null;menu=false;closeModal();render();break;
  case"menu":menu=!menu;render();break;
- case"nav":page=id;menu=false;render();break;
+ case"nav":page=id;menu=false;render();if(id==="log")act("logref");break;
+ case"logref":{if(S._dirty||pushing){toast("فيه تعديلات لسه بتتحفظ، جرّب بعد لحظات","err");break}
+  fetchRemote().then(r=>{if(!r||!r.cats){toast("تعذر جلب البيانات من Firebase","err");return}setRem(r);S=fromRemote(r);save(true);if(isAdm())render()});break}
+ case"logclr":confirmModal("هل أنت متأكد من مسح سجل التعديلات؟","Clear",()=>{S.log=[];ok()},"Clear Log");break;
+ case"catup":case"catdown":{const i=S.categories.findIndex(c=>c.id===id),j=a==="catup"?i-1:i+1;if(i<0||j<0||j>=S.categories.length)break;[S.categories[i],S.categories[j]]=[S.categories[j],S.categories[i]];ok();break}
  case"ucat":q="";ucat=id;ucode=null;render();break;
  case"qclear":{q="";const i=$("#uq");if(i){i.value="";i.focus()}$("#ubody").innerHTML=userBody();$("#qx").hidden=true;break}
  case"uback1":closePop();ucat=ucode=null;render();break;
@@ -442,12 +456,12 @@ function act(a,id){
   formModal("Add Folder",inp("Folder Name","name","","text",1),"Create",d=>{
    const n=d.name.trim();if(!n)return"اسم الفولدر مطلوب.";
    if(S.categories.some(x=>norm(x.name)===norm(n)))return"هذه الفئة موجودة بالفعل.";
-   S.categories.push({id:uid(),name:n,description:"",created:today(),codes:[]});save();refreshUI()});break}
+   S.categories.push({id:uid(),name:n,description:"",created:today(),codes:[]});logAct({a:"addFolder",c:n});save();refreshUI()});break}
  case"eadd":case"ecode":{if(!session||!session.canEdit||!session.edit)break;const c=findCat(ucat);if(!c)break;const k=a==="ecode"?c.codes.find(x=>x.id===id):null;
   formModal(k?"Edit Code":"Add Code",inp("Code Name","name",k?k.name:"","text",1)+inp("Short Code","shortCode",k?k.shortCode:"","text",1)+txa("Description (اختياري)","description",k?k.description:""),k?"Save":"Create",d=>{
    const n=d.name.trim(),sc=String(d.shortCode).trim();if(!n||!sc)return"اسم الكود والكود مطلوبان.";
    if(c.codes.some(x=>norm(x.name)===norm(n)&&(!k||x.id!==k.id)))return"اسم الكود موجود بالفعل في هذه الفئة.";
-   if(k){k.name=n;k.shortCode=sc;k.description=d.description.trim()}else c.codes.push({id:uid(),name:n,shortCode:sc,description:d.description.trim()});
+   if(k){if(k.name!==n||k.shortCode!==sc||k.description!==d.description.trim())logAct({a:"editCode",c:c.name,k:n,on:k.name,o:k.shortCode,n:sc});k.name=n;k.shortCode=sc;k.description=d.description.trim()}else{logAct({a:"addCode",c:c.name,k:n,n:sc});c.codes.push({id:uid(),name:n,shortCode:sc,description:d.description.trim()})}
    save();refreshUI()});break}
  case"edel":{if(!session||!session.canEdit)break;const c=findCat(ucat);if(!c)break;confirmModal("هل أنت متأكد من حذف هذا الكود؟","Delete",()=>{c.codes=c.codes.filter(x=>x.id!==id);save();refreshUI()});break}
  case"expjson":exportJSON();break;
