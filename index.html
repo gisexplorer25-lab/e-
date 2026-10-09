@@ -123,6 +123,10 @@ th{background:#fafafa}
 .gs .cc{flex-direction:column}.cc small{display:block;color:var(--mut);margin-top:5px;font-size:.78rem;font-weight:400}
 .bn{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;background:#fff5f4;border:2px solid #e00800;border-radius:12px;padding:12px 16px;margin-bottom:16px}
 .sy{margin-bottom:12px;font-size:.9rem;color:var(--mut)}.sy.ok{color:var(--green);font-weight:600}
+.tw2{position:relative;display:flex}.tw2 .cc{flex:1}
+.te{position:absolute;top:6px;inset-inline-end:6px;display:flex;gap:4px}
+.te button{border:0;background:#151515;color:#fff;border-radius:8px;width:28px;height:28px;cursor:pointer}.te button+button{background:#8a0600}
+.hd .ttl{margin:0}.ck{display:flex;gap:8px;align-items:center;margin:4px 0 12px;font-size:.9rem;cursor:pointer}
 </style>
 </head>
 <body>
@@ -133,7 +137,7 @@ th{background:#fafafa}
 const FB={apiKey:"AIzaSyD0hXeaWNI52YRv-Qr56-hg6ojL-AuKmwc",authDomain:"shortcodes-ac9ae.firebaseapp.com",projectId:"shortcodes-ac9ae",storageBucket:"shortcodes-ac9ae.firebasestorage.app",messagingSenderId:"832891650240",appId:"1:832891650240:web:ba5dfa60998aea12d2ad25",measurementId:"G-WH44QF3PL0"};
 /* إيميل الأدمن في Firebase Authentication — لو كتبته هنا يكفي الأدمن يكتب admin في خانة Username */
 const ADMIN_EMAIL="";
-const DOC="https://firestore.googleapis.com/v1/projects/"+FB.projectId+"/databases/(default)/documents/shortcodes/main";
+const DOCS="https://firestore.googleapis.com/v1/projects/"+FB.projectId+"/databases/(default)/documents/shortcodes/";
 /* ===== Default data (loaded once, only when localStorage is empty) ===== */
 const defaultCategories=[
  {id:"cat1",name:"باقات حكاية إنترنت",description:"Short Codes الخاصة بباقات حكاية إنترنت",codes:[
@@ -150,14 +154,15 @@ const norm=s=>String(s||"").trim().toLowerCase();
 const today=()=>new Date().toISOString().slice(0,10);
 function defState(){return{users:[],
  categories:JSON.parse(JSON.stringify(defaultCategories)).map(c=>Object.assign(c,{created:today()})),settings:{}}}
-function save(nd){if(!nd&&session&&session.role==="admin"){S._dirty=true;schedulePush()}try{localStorage.setItem(KEY,JSON.stringify(S));return true}catch(e){toast("تعذر حفظ البيانات","err");return false}}
+function save(nd){if(!nd&&canWrite()){S._dirty=true;schedulePush()}try{localStorage.setItem(KEY,JSON.stringify(S));return true}catch(e){toast("تعذر حفظ البيانات","err");return false}}
 const valid=d=>!!(d&&Array.isArray(d.users)&&Array.isArray(d.categories));
 const ac=o=>o.hash?{salt:String(o.salt||""),hash:String(o.hash)}:{password:String(o.password==null?"":o.password)};
 function clean(d){
  const cat=x=>({id:String(x.id||uid()),name:String(x.name||"").trim(),description:String(x.description||""),created:String(x.created||today()),
   codes:(Array.isArray(x.codes)?x.codes:[]).map(k=>({id:String(k.id||uid()),name:String(k.name||"").trim(),shortCode:String(k.shortCode==null?"":k.shortCode),description:String(k.description||"")}))});
- return Object.assign({users:d.users.map(u=>Object.assign({id:String(u.id||uid()),name:String(u.name||""),username:String(u.username||""),status:u.status==="active"?"active":"inactive"},ac(u))),
-  categories:d.categories.map(cat),settings:{}},d._dirty?{_dirty:true}:{})}
+ const usr=u=>Object.assign({id:String(u.id||uid()),name:String(u.name||""),username:String(u.username||""),status:u.status==="active"?"active":"inactive"},
+  u.edit?{edit:true}:{},u.authUid?{authEmail:String(u.authEmail||""),authUid:String(u.authUid)}:{},ac(u));
+ return Object.assign({users:d.users.map(usr),categories:d.categories.map(cat),settings:{}},d._dirty?{_dirty:true}:{})}
 /* ---- password hashing (PBKDF2-SHA256 + salt): never store/publish plain passwords ---- */
 const hex=b=>[...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,"0")).join("");
 const rnd=()=>hex(crypto.getRandomValues(new Uint8Array(12)));
@@ -165,61 +170,114 @@ async function H(salt,pw){const enc=new TextEncoder();const k=await crypto.subtl
  return hex(await crypto.subtle.deriveBits({name:"PBKDF2",hash:"SHA-256",salt:enc.encode(String(salt)),iterations:100000},k,256))}
 async function acct(o){if(o.password!=null&&!o.hash){o.salt=rnd();o.hash=await H(o.salt,o.password)}delete o.password}
 async function migrate(d){for(const u of d.users)await acct(u)}
-/* ---- Firebase (REST, no SDK): Firestore doc shortcodes/main + Auth for the admin ---- */
-let lastRemote=null,pushT=null,pushing=false,again=false,syncSt={st:"",msg:""};
+/* ---- Firebase (REST, no SDK): docs shortcodes/main (categories) + shortcodes/users (users + editors map) ---- */
+let rem={c:{t:"",ut:null},u:{t:"",ut:null,e:""}},pushT=null,pushing=false,again=false,syncSt={st:"",msg:""},pollN=0;
+const isAdm=()=>!!session&&session.role==="admin";
+const canWrite=()=>isAdm()||!!(session&&session.canEdit);
 function fbMsg(e){const m=String((e&&e.error&&e.error.message)||(e&&e.message)||e||"");
  if(/Failed to fetch|NetworkError|Load failed/i.test(m))return"تعذر الاتصال بالإنترنت";
  if(/INVALID_LOGIN|INVALID_PASSWORD|EMAIL_NOT_FOUND|INVALID_EMAIL/.test(m))return"INVALID_LOGIN";
  if(/TOO_MANY/.test(m))return"محاولات كثيرة، حاول لاحقًا";
+ if(/ADMIN_ONLY|OPERATION_NOT_ALLOWED/.test(m))return"فعّل Email/Password وسماح إنشاء الحسابات (sign-up) في Firebase Authentication";
  if(/API key/i.test(m))return"مفتاح API غير صحيح";
- if(/PERMISSION_DENIED|insufficient/i.test(m))return"لا توجد صلاحية كتابة — راجع Firestore Rules وإيميل الأدمن";
+ if(/PERMISSION_DENIED|insufficient/i.test(m))return"لا توجد صلاحية كتابة — راجع Firestore Rules";
  return m.slice(0,140)}
-async function fbSignIn(email,pw){
- const r=await fetch("https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key="+FB.apiKey,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({email:email,password:pw,returnSecureToken:true})});
- const d=await r.json();if(!r.ok)throw d;
+async function authCall(ep,body){
+ const r=await fetch("https://identitytoolkit.googleapis.com/v1/accounts:"+ep+"?key="+FB.apiKey,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});
+ const d=await r.json();if(!r.ok)throw d;return d}
+async function fbSignIn(email,pw){const d=await authCall("signInWithPassword",{email:email,password:pw,returnSecureToken:true});
  tok={id:d.idToken,ref:d.refreshToken,exp:Date.now()+(+d.expiresIn-60)*1000,email:d.email||email}}
+async function fbSignUp(email,pw){return(await authCall("signUp",{email:email,password:pw,returnSecureToken:true})).localId}
 async function fbToken(){
  if(!tok)throw{message:"غير مسجل الدخول"};
  if(Date.now()<tok.exp)return tok.id;
  const r=await fetch("https://securetoken.googleapis.com/v1/token?key="+FB.apiKey,{method:"POST",headers:{"Content-Type":"application/x-www-form-urlencoded"},body:"grant_type=refresh_token&refresh_token="+encodeURIComponent(tok.ref)});
  const d=await r.json();if(!r.ok)throw d;
  tok.id=d.id_token;tok.ref=d.refresh_token;tok.exp=Date.now()+(+d.expires_in-60)*1000;return tok.id}
-async function fetchRemote(){try{
- const r=await fetch(DOC+"?key="+FB.apiKey,{cache:"no-store"});
- if(r.status===404)return{none:true};if(!r.ok)return null;
- const j=await r.json();const t=j.fields&&j.fields.json&&j.fields.json.stringValue;if(!t)return{none:true};
- const d=JSON.parse(t);return valid(d)?{t:t,d:d}:null}catch(e){return null}}
+async function getDoc(n){try{
+ const r=await fetch(DOCS+n+"?key="+FB.apiKey,{cache:"no-store"});
+ if(r.status===404)return{none:true,t:"",ut:null,e:""};if(!r.ok)return null;
+ const j=await r.json(),f=j.fields||{};
+ return{t:(f.json&&f.json.stringValue)||"",ut:j.updateTime||null,e:Object.keys((f.editors&&f.editors.mapValue&&f.editors.mapValue.fields)||{}).sort().join(",")}}catch(e){return null}}
+async function fetchRemote(om){
+ const [c,u]=await Promise.all([getDoc("main"),om?Promise.resolve(null):getDoc("users")]);
+ if(!c||(!om&&!u))return null;
+ let cats=null,users=null;
+ try{if(c.t){const j=JSON.parse(c.t);if(Array.isArray(j.categories))cats=j.categories;if(Array.isArray(j.users))users=j.users}
+  if(u&&u.t){const j=JSON.parse(u.t);if(Array.isArray(j.users))users=j.users}}catch(e){return null}
+ return{c:c,u:u,cats:cats,users:users,om:!!om}}
+const fromRemote=r=>clean({users:r.users||(S&&S.users)||[],categories:r.cats||[]});
+function setRem(r){rem.c={t:r.c.t||"",ut:r.c.ut||null};if(!r.om&&r.u)rem.u={t:r.u.t||"",ut:r.u.ut||null,e:r.u.e||""}}
+/* 3-way merge: يطبق تعديلاتي (mine مقابل base) فوق آخر نسخة على السيرفر (theirs) */
+function merge(base,mine,theirs){
+ const ix=a=>{const m=new Map();a.forEach(c=>m.set(c.id,c));return m},js=JSON.stringify;
+ const B=ix(base),M=ix(mine),out=JSON.parse(js(theirs)),O=ix(out);
+ for(const [id,mc] of M){const bc=B.get(id);
+  if(!O.has(id)){if(!bc){const c=JSON.parse(js(mc));out.push(c);O.set(id,c)}continue}
+  const oc=O.get(id);
+  if(!bc||mc.name!==bc.name||mc.description!==bc.description){oc.name=mc.name;oc.description=mc.description}
+  const BC=ix(bc?bc.codes:[]),OC=ix(oc.codes);
+  for(const k of mc.codes){const bk=BC.get(k.id);
+   if(!bk||js(k)!==js(bk)){if(OC.has(k.id))Object.assign(OC.get(k.id),JSON.parse(js(k)));else if(!bk)oc.codes.push(JSON.parse(js(k)))}}
+  const mk=new Set(mc.codes.map(k=>k.id));
+  oc.codes=oc.codes.filter(k=>!(BC.has(k.id)&&!mk.has(k.id)))}
+ for(const id of B.keys())if(!M.has(id)){const i=out.findIndex(c=>c.id===id);if(i>=0)out.splice(i,1)}
+ return out}
+async function putDoc(n,fields,idt,ut,pre){
+ const f=Object.assign({updated:{stringValue:new Date().toISOString()}},fields);
+ const q=Object.keys(f).map(k=>"updateMask.fieldPaths="+k).join("&")+(pre?(ut?"&currentDocument.updateTime="+encodeURIComponent(ut):"&currentDocument.exists=false"):"");
+ const r=await fetch(DOCS+n+"?key="+FB.apiKey+"&"+q,{method:"PATCH",headers:{Authorization:"Bearer "+idt,"Content-Type":"application/json"},body:JSON.stringify({fields:f})});
+ const j=await r.json().catch(()=>({}));
+ if(r.ok)return{ut:j.updateTime};
+ if(pre&&(r.status===409||/FAILED_PRECONDITION|ABORTED|ALREADY_EXISTS/.test(JSON.stringify(j))))return{conflict:true};
+ throw j}
+async function pushOnce(idt){
+ if(isAdm()){
+  const ed={};S.users.forEach(u=>{if(u.edit&&u.status==="active"&&u.authUid)ed[u.authUid]={booleanValue:true}});
+  const uT=JSON.stringify({users:S.users}),eT=Object.keys(ed).sort().join(",");
+  if(uT!==rem.u.t||eT!==rem.u.e){const r=await putDoc("users",{json:{stringValue:uT},editors:{mapValue:{fields:ed}}},idt,null,false);rem.u={t:uT,ut:r.ut,e:eT}}}
+ const cT=JSON.stringify({categories:S.categories});
+ if(cT!==rem.c.t){
+  const r=await putDoc("main",{json:{stringValue:cT}},idt,rem.c.ut,true);
+  if(r.conflict){
+   const f=await fetchRemote(true);if(!f)throw{message:"تعذر الاتصال بالإنترنت"};
+   let base=[];try{base=JSON.parse(rem.c.t||"{}").categories||[]}catch(e){}
+   S.categories=merge(base,S.categories,f.cats||[]);rem.c={t:f.c.t||"",ut:f.c.ut||null};save(true);return false}
+  rem.c={t:cT,ut:r.ut}}
+ return true}
 function schedulePush(){clearTimeout(pushT);pushT=setTimeout(pushRemote,500)}
+function refreshUI(){if(!session)return;if(isAdm())render();else{const b=$("#ubody");if(b)b.innerHTML=userBody()}}
 async function pushRemote(){
- if(!session||session.role!=="admin")return;
+ if(!canWrite())return;
  if(pushing){again=true;return}
- pushing=true;setSync("saving");
+ pushing=true;setSync("saving");let merged=false;
  try{
   const idt=await fbToken();
-  const pub=JSON.parse(JSON.stringify(S));delete pub._dirty;const text=JSON.stringify(pub);
-  const r=await fetch(DOC+"?key="+FB.apiKey+"&updateMask.fieldPaths=json&updateMask.fieldPaths=updated",{method:"PATCH",headers:{Authorization:"Bearer "+idt,"Content-Type":"application/json"},body:JSON.stringify({fields:{json:{stringValue:text},updated:{stringValue:new Date().toISOString()}}})});
-  if(!r.ok)throw await r.json().catch(()=>({message:"HTTP "+r.status}));
-  lastRemote=text;if(!again){S._dirty=false;save(true)}setSync("ok")
+  for(let i=0;;i++){if(await pushOnce(idt))break;merged=true;if(i>=2)throw{message:"تعارض أثناء الحفظ، حاول مرة أخرى"}}
+  if(!again){S._dirty=false;save(true)}setSync("ok");if(merged)refreshUI()
  }catch(e){console.error(e);setSync("err","⚠ فشل الحفظ على Firebase: "+fbMsg(e))}
  pushing=false;if(again){again=false;pushRemote()}}
 function syncHTML(){
+ if(!canWrite())return"";
  if(syncSt.st==="saving")return'<div class="sy">⏳ جاري الحفظ على Firebase...</div>';
  if(syncSt.st==="err"||(!syncSt.st&&S._dirty))return`<div class="bn"><span>${esc(syncSt.msg||"⚠ فيه تعديلات لم تُحفظ على Firebase بعد")}</span><button class="btn sm" data-act="retry">إعادة المحاولة</button></div>`;
- if(syncSt.st==="ok")return'<div class="sy ok">✓ تم الحفظ على Firebase</div>';
+ if(syncSt.st==="ok")return'<div class="sy ok">✓ تم الحفظ — ظاهر لكل الموظفين</div>';
  return""}
 function setSync(st,msg){syncSt={st:st,msg:msg||""};const e=$("#syncbar");if(e)e.innerHTML=syncHTML()}
 async function load(){
  let loc=null;try{const raw=localStorage.getItem(KEY);if(raw){const d=JSON.parse(raw);if(valid(d))loc=d}}catch(e){}
- const rem=await fetchRemote();if(rem&&rem.t)lastRemote=rem.t;
- if(loc&&loc._dirty)S=loc;else if(rem&&rem.d)S=clean(rem.d);else if(loc)S=loc;else S=defState();
+ const r=await fetchRemote();if(r)setRem(r);
+ if(loc&&loc._dirty)S=loc;else if(r&&r.cats)S=fromRemote(r);else if(loc)S=loc;else S=defState();
  try{await migrate(S)}catch(e){toast("تعذر تجهيز كلمات المرور — افتح الصفحة عبر https","err")}
  save(true)}
 async function poll(){
- if(S._dirty||(session&&session.role==="admin")||document.hidden)return;
- const r=await fetchRemote();if(!r||!r.d||r.t===lastRemote)return;
- lastRemote=r.t;S=clean(r.d);await migrate(S);save(true);
+ if(S._dirty||isAdm()||document.hidden||pushing||$("#modal").innerHTML)return;
+ const om=(++pollN%5)!==0,r=await fetchRemote(om);
+ if(!r||!r.cats||(r.c.t===rem.c.t&&(om||(r.u.t===rem.u.t&&r.u.e===rem.u.e))))return;
+ setRem(r);S=fromRemote(r);await migrate(S);save(true);
  if(session&&session.role==="user"){const u=S.users.find(x=>x.id===session.uid);
   if(!u||u.status!=="active"){act("logout");toast("تم إيقاف هذا الحساب","err");return}
+  if(session.canEdit&&!u.edit){session.canEdit=false;toast("تم إلغاء صلاحية التعديل","err")}
   const b=$("#ubody");if(b){b.innerHTML=userBody();toast("تم تحديث الأكواد")}}}
 function toast(m,t){const e=document.createElement("div");e.className="tt"+(t==="err"?" err":"");e.textContent=m;$("#toast").appendChild(e);setTimeout(()=>e.remove(),2600)}
 async function copyText(t){
@@ -274,13 +332,15 @@ function loginView(){
    if(x){
     if(await H(x.salt,p)!==x.hash){er.textContent=bad;return}
     if(x.status!=="active"){er.textContent="هذا الحساب غير مفعل، يرجى التواصل مع الإدارة.";return}
-    session={role:"user",name:x.name,uid:x.id};ucat=ucode=null;render();return}
+    session={role:"user",name:x.name,uid:x.id,canEdit:false};ucat=ucode=null;
+    if(x.edit&&x.authEmail){try{await fbSignIn(x.authEmail,p);session.canEdit=true}catch(ex){toast("تعذر تفعيل صلاحية التعديل: "+fbMsg(ex),"err")}}
+    render();return}
    const email=raw.includes("@")?raw:(u==="admin"&&ADMIN_EMAIL?ADMIN_EMAIL:"");
    if(!email){er.textContent=bad;return}
    er.textContent="جاري التحقق...";
    try{await fbSignIn(email,p)}catch(ex){const m=fbMsg(ex);er.textContent=m==="INVALID_LOGIN"?bad:m;return}
    session={role:"admin",name:email};page="dash";
-   if(S._dirty)pushRemote();else{const r=await fetchRemote();if(r&&r.d){S=clean(r.d);lastRemote=r.t;save(true)}}
+   if(S._dirty)pushRemote();else{const r=await fetchRemote();if(r&&r.cats){setRem(r);S=fromRemote(r);save(true)}}
    render()
   }catch(ex){console.error(ex);er.textContent="تعذر التحقق من البيانات. تأكد من الاتصال وأن الصفحة مفتوحة عبر https."}}}
 
@@ -288,7 +348,7 @@ function loginView(){
 let q="";
 const sn=t=>String(t||"").toLowerCase().replace(/[\u064B-\u0652\u0640]/g,"").replace(/[أإآٱ]/g,"ا").replace(/ى/g,"ي").replace(/ة/g,"ه").trim();
 const folderBtn=c=>`<button class="fo" data-act="ucat" data-id="${c.id}"><span class="ft"></span><b>${esc(c.name)}</b><small>${c.codes.length} Codes</small></button>`;
-const tileBtn=(k,lab)=>`<button class="cc code" data-act="ucode" data-id="${k.id}"><b>${esc(k.name)}</b>${lab?`<small>${esc(lab)}</small>`:""}</button>`;
+const tileBtn=(k,lab,ed)=>`<div class="tw2"><button class="cc code" data-act="ucode" data-id="${k.id}"><b>${esc(k.name)}</b>${lab?`<small>${esc(lab)}</small>`:""}</button>${ed?`<span class="te"><button data-act="ecode" data-id="${k.id}" title="Edit">✎</button><button data-act="edel" data-id="${k.id}" title="Delete">✕</button></span>`:""}</div>`;
 function userBody(){
  const qq=sn(q);
  if(qq){
@@ -300,10 +360,11 @@ function userBody(){
  const c=ucat&&findCat(ucat);
  if(!c){ucat=ucode=null;
   return S.categories.length?`<div class="grid fo5">${S.categories.map(folderBtn).join("")}</div>`:'<div class="empty">لا توجد فئات حاليًا.</div>'}
- return`<button class="btn gh bk" data-act="uback1">← Back to Categories</button><h2 class="ttl">${esc(c.name)}</h2>`+
-  (c.codes.length?`<div class="grid fo5 gs">${c.codes.map(k=>tileBtn(k)).join("")}</div>`:'<div class="empty">لا توجد أكواد في هذه الفئة.</div>')}
+ const ed=!!(session&&session.canEdit);
+ return`<button class="btn gh bk" data-act="uback1">← Back to Categories</button><div class="hd"><h2 class="ttl">${esc(c.name)}</h2>${ed?'<button class="btn" data-act="eadd">+ Add Code</button>':""}</div>`+
+  (c.codes.length?`<div class="grid fo5 gs">${c.codes.map(k=>tileBtn(k,"",ed)).join("")}</div>`:'<div class="empty">لا توجد أكواد في هذه الفئة.</div>')}
 function userView(){
- $("#app").innerHTML=`<div class="uhead"><div><h1>Short Code Assistant</h1><small>Welcome, ${esc(session.name)}</small></div><button class="btn gh sm" data-act="logout">⎋ Logout</button></div><div class="uwrap"><div class="sb"><span>🔍</span><input id="uq" placeholder="ابحث في الفولدرات أو أسماء الأكواد..." value="${esc(q)}" autocomplete="off"><button class="x" id="qx" data-act="qclear"${q?"":" hidden"}>✕</button></div><div id="ubody">${userBody()}</div></div>`}
+ $("#app").innerHTML=`<div class="uhead"><div><h1>Short Code Assistant</h1><small>Welcome, ${esc(session.name)}${session.canEdit?" ✎ صلاحية تعديل":""}</small></div><button class="btn gh sm" data-act="logout">⎋ Logout</button></div><div class="uwrap"><div id="syncbar">${syncHTML()}</div><div class="sb"><span>🔍</span><input id="uq" placeholder="ابحث في الفولدرات أو أسماء الأكواد..." value="${esc(q)}" autocomplete="off"><button class="x" id="qx" data-act="qclear"${q?"":" hidden"}>✕</button></div><div id="ubody">${userBody()}</div></div>`}
 
 /* ----- Admin ----- */
 function adminView(){
@@ -316,7 +377,7 @@ function adminPage(){
  if(page==="cats")return`<div class="hd"><h2>Categories</h2><button class="btn" data-act="addcat">+ Add Category</button></div><div class="tw">${S.categories.length?`<table><tr><th>Category Name</th><th>Description</th><th>Codes</th><th>Created</th><th>Actions</th></tr>${S.categories.map(c=>`<tr><td>${esc(c.name)}</td><td>${esc(c.description)}</td><td>${c.codes.length}</td><td>${esc(c.created||"")}</td><td><button class="btn sm" data-act="editcat" data-id="${c.id}">Edit</button><button class="btn rd sm" data-act="delcat" data-id="${c.id}">Delete</button></td></tr>`).join("")}</table>`:'<div class="empty">لا توجد فئات.</div>'}</div>`;
  if(page==="codes"){const rows=allCodes().filter(x=>!fcat||x.cat.id===fcat);
   return`<div class="hd"><h2>Short Codes</h2><div class="row"><select class="btn gh" data-chg="fcat"><option value="">كل الفئات</option>${S.categories.map(c=>`<option value="${c.id}"${fcat===c.id?" selected":""}>${esc(c.name)}</option>`).join("")}</select><button class="btn" data-act="addcode">+ Add Code</button></div></div><div class="tw">${rows.length?`<table><tr><th>Category</th><th>Code Name</th><th>Short Code</th><th>Actions</th></tr>${rows.map(x=>`<tr><td>${esc(x.cat.name)}</td><td>${esc(x.k.name)}</td><td class="ltr">${esc(x.k.shortCode)}</td><td><button class="btn sm" data-act="editcode" data-id="${x.k.id}">Edit</button><button class="btn rd sm" data-act="delcode" data-id="${x.k.id}">Delete</button></td></tr>`).join("")}</table>`:'<div class="empty">لا توجد أكواد.</div>'}</div>`}
- if(page==="users")return`<div class="hd"><h2>Users</h2><button class="btn" data-act="adduser">+ Add User</button></div><div class="tw">${S.users.length?`<table><tr><th>Name</th><th>Username</th><th>Status</th><th>Actions</th></tr>${S.users.map(u=>`<tr><td>${esc(u.name)}</td><td class="ltr">${esc(u.username)}</td><td><span class="badge ${u.status==="active"?"a":"i"}">${u.status==="active"?"Active":"Inactive"}</span></td><td><button class="btn sm" data-act="edituser" data-id="${u.id}">Edit</button><button class="btn gr sm" data-act="toguser" data-id="${u.id}">${u.status==="active"?"Disable":"Enable"}</button><button class="btn rd sm" data-act="deluser" data-id="${u.id}">Delete</button></td></tr>`).join("")}</table>`:'<div class="empty">لا يوجد مستخدمون.</div>'}</div>`;
+ if(page==="users")return`<div class="hd"><h2>Users</h2><button class="btn" data-act="adduser">+ Add User</button></div><div class="tw">${S.users.length?`<table><tr><th>Name</th><th>Username</th><th>Status</th><th>Edit Codes</th><th>Actions</th></tr>${S.users.map(u=>`<tr><td>${esc(u.name)}</td><td class="ltr">${esc(u.username)}</td><td><span class="badge ${u.status==="active"?"a":"i"}">${u.status==="active"?"Active":"Inactive"}</span></td><td>${u.edit?'<span class="badge a">✎ تعديل</span>':"—"}</td><td><button class="btn sm" data-act="edituser" data-id="${u.id}">Edit</button><button class="btn gr sm" data-act="toguser" data-id="${u.id}">${u.status==="active"?"Disable":"Enable"}</button><button class="btn rd sm" data-act="deluser" data-id="${u.id}">Delete</button></td></tr>`).join("")}</table>`:'<div class="empty">لا يوجد مستخدمون.</div>'}</div>`;
  if(page==="settings")return`<div class="hd"><h2>Settings</h2></div><div class="card"><h3>الاتصال بـ Firebase</h3><p style="margin-bottom:12px;color:var(--mut);line-height:1.9;font-size:.9rem">المشروع: <b class="ltr">${esc(FB.projectId)}</b><br>حساب الأدمن: <b class="ltr">${esc(tok?tok.email:"")}</b><br>أي تعديل بيتحفظ تلقائيًا ويظهر للموظفين خلال دقيقة. لتغيير كلمة مرور الأدمن: Firebase Console ← Authentication.</p><div class="row" style="justify-content:flex-start;flex-wrap:wrap"><button class="btn gr" data-act="retry">Save Now</button><button class="btn gh" data-act="discard">Reload From Server</button></div></div><div class="card"><h3>نسخ احتياطي</h3><p style="margin-bottom:12px;color:var(--mut);line-height:1.7;font-size:.9rem">Export Backup: ملف JSON بكل البيانات. Import Backup: يستبدل البيانات الحالية ويحفظها على Firebase فتظهر للجميع.</p><div class="row" style="flex-wrap:wrap;justify-content:flex-start"><button class="btn" data-act="expjson">⬇ Export Backup</button><button class="btn gh" data-act="impjson">⬆ Import Backup</button></div><input type="file" id="impf" accept=".json,application/json" hidden></div><div class="card"><h3>Reset All Data</h3><p style="margin-bottom:12px;color:var(--mut)">حذف جميع الفئات والأكواد والمستخدمين (من Firebase أيضًا).</p><button class="btn rd" data-act="reset">Reset All Data</button></div>`;
  return""}
 
@@ -356,17 +417,31 @@ function act(a,id){
  case"delcode":confirmModal("هل أنت متأكد من حذف هذا الكود؟","Delete",()=>{S.categories.forEach(c=>c.codes=c.codes.filter(x=>x.id!==id));ok()});break;
  case"adduser":case"edituser":{const u=a==="edituser"?S.users.find(x=>x.id===id):null;
   const st=`<div class="fld"><label>Status</label><select name="status"><option value="active"${!u||u.status==="active"?" selected":""}>Active</option><option value="inactive"${u&&u.status!=="active"?" selected":""}>Inactive</option></select></div>`;
-  formModal(u?"Edit User":"Add User",inp("Full Name","name",u?u.name:"","text",1)+inp("Username","username",u?u.username:"","text",1)+inp("Password"+(u?" (اتركه فارغًا لعدم التغيير)":""),"password","","password",!u)+st,u?"Save":"Create User",async d=>{
+  formModal(u?"Edit User":"Add User",inp("Full Name","name",u?u.name:"","text",1)+inp("Username","username",u?u.username:"","text",1)+inp("Password"+(u?" (اتركه فارغًا لعدم التغيير)":""),"password","","password",!u)+st+`<label class="ck"><input type="checkbox" name="edit" value="1"${u&&u.edit?" checked":""}> يسمح له بإضافة وتعديل وحذف الأكواد</label>`,u?"Save":"Create User",async d=>{
    const n=d.name.trim(),un=d.username.trim(),pw=d.password;
    if(!n||!un||(!u&&!pw))return"جميع الحقول مطلوبة.";
    if(norm(un)==="admin"||S.users.some(x=>norm(x.username)===norm(un)&&(!u||x.id!==u.id)))return"اسم المستخدم موجود بالفعل.";
-   if(u){u.name=n;u.username=un;u.status=d.status;if(pw){u.salt=rnd();u.hash=await H(u.salt,pw)}}
-   else{const salt=rnd();S.users.push({id:uid(),name:n,username:un,salt:salt,hash:await H(salt,pw),status:d.status})}
+   const we=d.edit==="1";let ae=u&&u.authEmail,au=u&&u.authUid;
+   if(pw&&!we){ae=au=undefined}
+   if(we&&(pw||!au)){
+    if(!pw)return"لتفعيل صلاحية التعديل اكتب كلمة مرور جديدة للموظف.";
+    if(pw.length<6)return"كلمة المرور لازم تكون 6 أحرف على الأقل لصلاحية التعديل.";
+    try{ae="ed"+rnd().slice(0,12)+"@shortcodes.app";au=await fbSignUp(ae,pw)}catch(ex){return"تعذر إنشاء صلاحية التعديل: "+fbMsg(ex)}}
+   const rec={name:n,username:un,status:d.status,edit:we,authEmail:ae,authUid:au};
+   if(u){Object.assign(u,rec);if(pw){u.salt=rnd();u.hash=await H(u.salt,pw)}}
+   else{const salt=rnd();S.users.push(Object.assign({id:uid(),salt:salt,hash:await H(salt,pw)},rec))}
    ok();toast(u?"تم حفظ التعديلات":"تم إنشاء المستخدم بنجاح")});break}
   case"toguser":{const u=S.users.find(x=>x.id===id);if(u){u.status=u.status==="active"?"inactive":"active";ok()}break}
  case"deluser":confirmModal("هل أنت متأكد من حذف هذا المستخدم؟","Delete",()=>{S.users=S.users.filter(x=>x.id!==id);ok()});break;
- case"retry":if(session&&session.role==="admin")pushRemote();break;
- case"discard":confirmModal("سيتم التخلي عن أي تعديلات غير محفوظة وتحميل النسخة الموجودة على Firebase. هل أنت متأكد؟","Reload",async()=>{const r=await fetchRemote();if(!r||!r.d){toast("تعذر جلب البيانات من Firebase","err");return}S=clean(r.d);lastRemote=r.t;await migrate(S);save(true);setSync("","");render();toast("تم تحميل النسخة من Firebase")},"Reload From Server");break;
+ case"retry":if(canWrite())pushRemote();break;
+ case"discard":confirmModal("سيتم التخلي عن أي تعديلات غير محفوظة وتحميل النسخة الموجودة على Firebase. هل أنت متأكد؟","Reload",async()=>{const r=await fetchRemote();if(!r||!r.cats){toast("تعذر جلب البيانات من Firebase","err");return}setRem(r);S=fromRemote(r);await migrate(S);save(true);setSync("","");render();toast("تم تحميل النسخة من Firebase")},"Reload From Server");break;
+ case"eadd":case"ecode":{if(!session||!session.canEdit)break;const c=findCat(ucat);if(!c)break;const k=a==="ecode"?c.codes.find(x=>x.id===id):null;
+  formModal(k?"Edit Code":"Add Code",inp("Code Name","name",k?k.name:"","text",1)+inp("Short Code","shortCode",k?k.shortCode:"","text",1)+txa("Description (اختياري)","description",k?k.description:""),k?"Save":"Create",d=>{
+   const n=d.name.trim(),sc=String(d.shortCode).trim();if(!n||!sc)return"اسم الكود والكود مطلوبان.";
+   if(c.codes.some(x=>norm(x.name)===norm(n)&&(!k||x.id!==k.id)))return"اسم الكود موجود بالفعل في هذه الفئة.";
+   if(k){k.name=n;k.shortCode=sc;k.description=d.description.trim()}else c.codes.push({id:uid(),name:n,shortCode:sc,description:d.description.trim()});
+   save();refreshUI()});break}
+ case"edel":{if(!session||!session.canEdit)break;const c=findCat(ucat);if(!c)break;confirmModal("هل أنت متأكد من حذف هذا الكود؟","Delete",()=>{c.codes=c.codes.filter(x=>x.id!==id);save();refreshUI()});break}
  case"expjson":exportJSON();break;
  case"impjson":$("#impf").click();break;
  case"reset":confirmModal("تحذير: سيتم حذف جميع Categories وCodes وUsers. هل أنت متأكد؟","Reset Everything",()=>{S.categories=[];S.users=[];fcat="";ok();toast("تم حذف جميع البيانات")},"Reset All Data");break;
@@ -381,4 +456,4 @@ window.addEventListener("error",e=>console.error(e.error||e.message));
 load().then(()=>{render();setInterval(poll,60000)});
 </script>
 </body>
-  </html>
+</html>
