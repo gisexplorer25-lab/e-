@@ -335,6 +335,25 @@ html[data-theme=dark] .pok{color:#ececf0}
 html[data-theme=dark] .ov{background:#000b}
 html[data-theme=dark] .uhead::after{background:#e00800}
 html[data-theme=dark] .empty{color:#8a8a94}
+
+/* ===== Login tabs, signup, requests ===== */
+.ltabs{display:flex;gap:4px;background:#f1f1f4;border-radius:14px;padding:4px;margin-bottom:26px}
+.ltabs button{flex:1;border:0;background:none;border-radius:11px;padding:10px 8px;font-size:.95rem;font-weight:600;color:#6b6b75;cursor:pointer;transition:background .2s,color .2s,box-shadow .2s}
+.ltabs button:hover{color:#141416}
+.ltabs button.on{background:#fff;color:#e00800;box-shadow:0 1px 3px #0002}
+.ltabs button:focus-visible{outline:2px solid #e00800;outline-offset:1px}
+.lw input.ar{direction:rtl}
+.sdone{text-align:center;padding:12px 0 4px}
+.sdone .sok{width:64px;height:64px;border-radius:50%;background:#e0080014;color:#e00800;display:grid;place-items:center;margin:0 auto 18px}
+.sdone .sok svg{width:30px;height:30px;stroke-width:2.2}
+.sdone h1{font-size:1.5rem}
+.sdone p{color:#6b7280;line-height:1.9;margin:8px 0 26px}
+.badge.w{background:#fff3cd;color:#7a5200}
+html[data-theme=dark] .badge.w{background:#3a2f0b;color:#ffd666}
+.nb{margin-inline-start:auto;background:#e00800;color:#fff;font-style:normal;font-size:.72rem;font-weight:700;min-width:22px;height:22px;border-radius:99px;display:grid;place-items:center;padding:0 6px}
+.tw+.hd{margin-top:34px}
+pre.rules{direction:ltr;text-align:left;background:#0f0f11;color:#e6e6ea;border-radius:12px;padding:16px;font:500 .8rem/1.7 Consolas,Menlo,monospace;overflow-x:auto;white-space:pre}
+html[data-theme=dark] .btn.gr{background:#2f2f35}
 </style>
 </head>
 <body>
@@ -558,35 +577,112 @@ const IC_EYE_OFF='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" str
 function remGet(){try{const r=JSON.parse(localStorage.getItem(RK)||"null");if(r&&r.u)return{u:r.u,p:decodeURIComponent(atob(r.p||""))}}catch(e){}return null}
 function remSet(u,p){try{localStorage.setItem(RK,JSON.stringify({u:u,p:btoa(encodeURIComponent(p))}))}catch(e){}}
 function remClear(){try{localStorage.removeItem(RK)}catch(e){}}
+
+/* ===== Signup requests (Firestore collection "signups", doc id = hex(username)) ===== */
+const SIGN="https://firestore.googleapis.com/v1/projects/"+FB.projectId+"/databases/(default)/documents/signups";
+const rid=u=>"u_"+hex(new TextEncoder().encode(norm(u)));
+const fv=(f,k)=>(f&&f[k]&&f[k].stringValue)||"";
+const reqObj=(id,f)=>({id:id,name:fv(f,"name"),username:fv(f,"username"),salt:fv(f,"salt"),hash:fv(f,"hash"),status:fv(f,"status")||"pending",created:fv(f,"created")});
+async function getReq(un){try{const r=await fetch(SIGN+"/"+rid(un)+"?key="+FB.apiKey,{cache:"no-store"});
+ if(r.status===404)return{state:"none"};if(r.status===403)return{state:"deny"};if(!r.ok)return{state:"err"};
+ const j=await r.json();return{state:"ok",d:reqObj(rid(un),j.fields)}}catch(e){return{state:"err"}}}
+async function createReq(o){try{const f={};["name","username","salt","hash"].forEach(k=>f[k]={stringValue:o[k]});
+ f.status={stringValue:"pending"};f.created={stringValue:new Date().toISOString()};
+ const r=await fetch(SIGN+"?documentId="+rid(o.username)+"&key="+FB.apiKey,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({fields:f})});
+ if(r.ok)return"ok";if(r.status===409)return"taken";if(r.status===403)return"deny";return"err"}catch(e){return"err"}}
+async function refreshUsers(){try{const r=await fetchRemote();if(r&&r.cats&&!S._dirty){setRem(r);S=fromRemote(r);await migrate(S);save(true)}}catch(e){}}
+let REQ={list:[],err:"",ok:false};
+async function loadReqs(){if(!isAdm()||!tok)return;let nx;
+ try{const idt=await fbToken();const r=await fetch(SIGN+"?pageSize=300",{headers:{Authorization:"Bearer "+idt},cache:"no-store"});
+  if(r.ok){const j=await r.json();nx={list:(j.documents||[]).map(d=>reqObj(d.name.split("/").pop(),d.fields)).sort((a,b)=>String(b.created).localeCompare(String(a.created))),err:"",ok:true}}
+  else nx={list:REQ.list,err:r.status===403?"rules":"net",ok:false}}
+ catch(e){nx={list:REQ.list,err:"net",ok:false}}
+ const ch=JSON.stringify(nx)!==JSON.stringify(REQ);REQ=nx;if(ch&&isAdm()&&!$("#modal").innerHTML)render()}
+async function reqPatch(id,st){const idt=await fbToken();const r=await fetch(SIGN+"/"+id+"?updateMask.fieldPaths=status&key="+FB.apiKey,{method:"PATCH",headers:{Authorization:"Bearer "+idt,"Content-Type":"application/json"},body:JSON.stringify({fields:{status:{stringValue:st}}})});if(!r.ok)throw{message:"PERMISSION_DENIED"}}
+async function reqDel(id){const idt=await fbToken();const r=await fetch(SIGN+"/"+id+"?key="+FB.apiKey,{method:"DELETE",headers:{Authorization:"Bearer "+idt}});if(!r.ok&&r.status!==404)throw{message:"PERMISSION_DENIED"}}
+const pendCount=()=>REQ.list.filter(x=>x.status==="pending").length;
+function reqSection(){
+ const L=REQ.list.filter(x=>x.status!=="approved"),pc=pendCount();let body;
+ if(REQ.err==="rules")body='<div class="empty">تعذر تحميل الطلبات. فعّل قواعد التسجيل في Firestore (Settings ← Signup Rules).</div>';
+ else if(REQ.err&&!L.length)body='<div class="empty">تعذر الاتصال بالإنترنت.</div>';
+ else if(!REQ.ok&&!L.length)body='<div class="empty">جاري التحميل...</div>';
+ else if(!L.length)body='<div class="empty">لا توجد طلبات تسجيل جديدة.</div>';
+ else body=`<table><tr><th>Name</th><th>Username</th><th>Date</th><th>Status</th><th>Actions</th></tr>${L.map(q=>`<tr><td>${esc(q.name)}</td><td class="ltr">${esc(q.username)}</td><td class="ltr">${esc((q.created||"").slice(0,10))}</td><td><span class="badge ${q.status==="rejected"?"i":"w"}">${q.status==="rejected"?"Rejected":"Pending"}</span></td><td><button class="btn sm" data-act="reqok" data-id="${q.id}">Approve</button>${q.status==="rejected"?`<button class="btn rd sm" data-act="reqdel" data-id="${q.id}">Delete</button>`:`<button class="btn rd sm" data-act="reqno" data-id="${q.id}">Reject</button>`}</td></tr>`).join("")}</table>`;
+ return`<div class="hd"><h2>Signup Requests${pc?` <span class="badge w">${pc}</span>`:""}</h2><button class="btn gh" data-act="reqref">⟳ Refresh</button></div><div class="tw">${body}</div>`}
+function rulesCard(){const em=tok&&tok.email?tok.email:"ADMIN_EMAIL";
+ const r="match /signups/{id} {\n  allow get: if true;\n  allow create: if request.resource.data.status == 'pending'\n    && request.resource.data.keys().hasOnly(['name','username','salt','hash','status','created'])\n    && request.resource.data.name is string && request.resource.data.name.size() < 80\n    && request.resource.data.username is string && request.resource.data.username.size() < 40;\n  allow list, update, delete: if request.auth != null && request.auth.token.email == '"+em+"';\n}";
+ return`<div class="card" style="max-width:760px"><h3>Signup Rules</h3><p style="margin-bottom:12px;color:var(--mut);line-height:1.9;font-size:.9rem">عشان إنشاء الحساب يشتغل، افتح Firebase Console ← Firestore Database ← Rules، والصق القاعدة دي جوه <b class="ltr">match /databases/{database}/documents</b> جنب القواعد الحالية، وبعدها Publish. مرة واحدة بس.</p><pre class="rules" id="rulesTx">${esc(r)}</pre><div class="row" style="justify-content:flex-start;margin-top:12px"><button class="btn gh" data-act="copyrules">Copy Rules</button></div></div>`}
+
+/* ===== Login / Signup tabs ===== */
+let lmode="in";
+const TABS=m=>`<div class="ltabs" role="tablist"><button type="button" role="tab" aria-selected="${m==="in"}" class="${m==="in"?"on":""}" data-lm="in">تسجيل الدخول</button><button type="button" role="tab" aria-selected="${m==="up"}" class="${m==="up"?"on":""}" data-lm="up">إنشاء حساب</button></div>`;
+function bindTabs(){document.querySelectorAll(".ltabs button").forEach(b=>b.onclick=()=>{lmode=b.dataset.lm;loginView()})}
+function signupView(){
+ $("#app").innerHTML=`<div class="login"><div class="lc">
+ <aside class="lbrand"><img src="${LOGO_W}" alt="etisalat and" width="230"><h2>Short Code Assistant</h2><p>ابحث عن الكود المناسب وانسخه في ثوانٍ.</p></aside>
+ <form class="lform" id="sf" autocomplete="off" novalidate>${TABS("up")}
+  <h1>إنشاء حساب جديد</h1><div class="lsub">الأدمن هيراجع طلبك قبل تفعيل الحساب</div>
+  <div class="lf"><label for="sn">الاسم</label><div class="lw">${IC_U}<input class="ar" id="sn" name="n" placeholder="الاسم بالكامل" maxlength="60"></div></div>
+  <div class="lf"><label for="su">Username</label><div class="lw">${IC_U}<input id="su" name="u" placeholder="Username" maxlength="30" autocapitalize="none" spellcheck="false"></div></div>
+  <div class="lf"><label for="sp">Password</label><div class="lw">${IC_P}<input id="sp" name="p" type="password" placeholder="••••••••" maxlength="64"><button type="button" class="eye" id="seye" aria-label="إظهار كلمة المرور">${IC_EYE}</button></div></div>
+  <div class="err" id="se" role="alert"></div><button class="lbtn" id="sbtn">Create Account</button>
+ </form></div></div>`;
+ bindTabs();const sp=$("#sp");
+ $("#seye").onclick=()=>{const v=sp.type==="password";sp.type=v?"text":"password";$("#seye").innerHTML=v?IC_EYE_OFF:IC_EYE;sp.focus()};
+ $("#sn").focus();
+ $("#sf").onsubmit=async e=>{e.preventDefault();const f=e.target,n=f.n.value.trim(),un=f.u.value.trim(),pw=f.p.value,er=$("#se"),b=$("#sbtn");
+  if(n.length<2){er.textContent="اكتب اسمك بالكامل.";return}
+  if(!/^[^\s@\/]{3,30}$/u.test(un)){er.textContent="اسم المستخدم من 3 إلى 30 حرف، بدون مسافات أو @.";return}
+  if(pw.length<6){er.textContent="كلمة المرور لازم تكون 6 أحرف على الأقل.";return}
+  const taken=()=>norm(un)==="admin"||S.users.some(v=>norm(v.username)===norm(un));
+  if(taken()){er.textContent="اسم المستخدم مستخدم بالفعل، اختر اسمًا آخر.";return}
+  b.disabled=true;er.textContent="جاري إرسال الطلب...";
+  try{
+   await refreshUsers();if(taken()){er.textContent="اسم المستخدم مستخدم بالفعل، اختر اسمًا آخر.";b.disabled=false;return}
+   const salt=rnd(),hash=await H(salt,pw),res=await createReq({name:n,username:un,salt:salt,hash:hash});
+   if(res==="taken"){er.textContent="اسم المستخدم مستخدم بالفعل، اختر اسمًا آخر."}
+   else if(res==="deny"){er.textContent="إنشاء الحسابات غير مفعّل حاليًا، تواصل مع الأدمن."}
+   else if(res!=="ok"){er.textContent="تعذر إرسال الطلب، تأكد من الاتصال وحاول مرة أخرى."}
+   else{$("#sf").innerHTML=`${TABS("up")}<div class="sdone"><div class="sok">${I.check}</div><h1>تم إرسال طلبك</h1><p>الأدمن هيراجعه، وبعد الموافقة تقدر تسجّل دخول بنفس اليوزر والباسورد.</p><button type="button" class="lbtn" id="sback">رجوع لتسجيل الدخول</button></div>`;
+    bindTabs();$("#sback").onclick=()=>{lmode="in";loginView()};return}
+  }catch(ex){console.error(ex);er.textContent="تعذر إرسال الطلب، تأكد من الاتصال وحاول مرة أخرى."}
+  b.disabled=false}}
 function loginView(){
+ if(lmode==="up"){signupView();return}
  const rm=remGet();
  $("#app").innerHTML=`<div class="login"><div class="lc">
  <aside class="lbrand"><img src="${LOGO_W}" alt="etisalat and" width="230"><h2>Short Code Assistant</h2><p>ابحث عن الكود المناسب وانسخه في ثوانٍ.</p></aside>
  <form class="lform" id="lf" autocomplete="off" novalidate>
-  <h1>تسجيل الدخول</h1><div class="lsub">أدخل بياناتك للمتابعة</div>
+  ${TABS("in")}<h1>أهلًا بك</h1><div class="lsub">أدخل بياناتك للمتابعة</div>
   <div class="lf"><label for="lu">Username</label><div class="lw">${IC_U}<input id="lu" name="u" placeholder="Username" autocapitalize="none" spellcheck="false" ${rm?"":"autofocus"}></div></div>
   <div class="lf"><label for="lp">Password</label><div class="lw">${IC_P}<input id="lp" name="p" type="password" placeholder="••••••••"><button type="button" class="eye" id="eye" aria-label="إظهار كلمة المرور">${IC_EYE}</button></div></div>
   <label class="rem"><input type="checkbox" name="r" id="lr" ${rm?"checked":""}><span class="bx"><svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 6.4l2.6 2.6L10 3.4"/></svg></span><span class="tx">تذكرني</span></label>
   <div class="err" id="le" role="alert"></div><button class="lbtn" id="lbtn">Login</button>
  </form></div></div>`;
- const fu=$("#lu"),fp=$("#lp");
+ bindTabs();const fu=$("#lu"),fp=$("#lp");
  if(rm){fu.value=rm.u;fp.value=rm.p;$("#lbtn").focus()}
  $("#eye").onclick=()=>{const s=fp.type==="password";fp.type=s?"text":"password";$("#eye").innerHTML=s?IC_EYE_OFF:IC_EYE;$("#eye").setAttribute("aria-label",s?"إخفاء كلمة المرور":"إظهار كلمة المرور");fp.focus()};
  $("#lf").onsubmit=async e=>{e.preventDefault();const f=e.target,raw=f.u.value.trim(),u=norm(raw),p=f.p.value,er=$("#le"),keep=f.r.checked,remember=()=>keep?remSet(raw,p):remClear(),bad="اسم المستخدم أو كلمة المرور غير صحيحة.";
   if(!u||!p){er.textContent="يرجى إدخال اسم المستخدم وكلمة المرور.";return}
   try{
-   const x=S.users.find(v=>norm(v.username)===u);
+   let x=S.users.find(v=>norm(v.username)===u);
+   if(!x&&!raw.includes("@")){er.textContent="جاري التحقق...";await refreshUsers();x=S.users.find(v=>norm(v.username)===u);er.textContent=""}
    if(x){
     if(await H(x.salt,p)!==x.hash){er.textContent=bad;return}
     if(x.status!=="active"){er.textContent="هذا الحساب غير مفعل، يرجى التواصل مع الإدارة.";return}
     session={role:"user",name:x.name,uid:x.id,canEdit:false};ucat=ucode=null;remember();
     if(x.edit&&x.authEmail){try{await fbSignIn(x.authEmail,p);session.canEdit=true}catch(ex){toast("تعذر تفعيل صلاحية التعديل: "+fbMsg(ex),"err")}}
     render();return}
+   if(!raw.includes("@")&&!(u==="admin"&&ADMIN_EMAIL)){
+    const rq=await getReq(u);
+    if(rq.state==="ok"){
+     if(await H(rq.d.salt,p)!==rq.d.hash){er.textContent=bad;return}
+     er.textContent=rq.d.status==="rejected"?"تم رفض دخولك من قبل الأدمن.":"طلبك لسه قيد المراجعة من الأدمن، هتقدر تدخل بعد الموافقة.";return}}
    const email=raw.includes("@")?raw:(u==="admin"&&ADMIN_EMAIL?ADMIN_EMAIL:"");
    if(!email){er.textContent=bad;return}
    er.textContent="جاري التحقق...";
    try{await fbSignIn(email,p)}catch(ex){const m=fbMsg(ex);er.textContent=m==="INVALID_LOGIN"?bad:m;return}
-   session={role:"admin",name:email};page="dash";remember();
+   session={role:"admin",name:email};page="dash";remember();REQ={list:[],err:"",ok:false};loadReqs();
    if(S._dirty)pushRemote();else{const r=await fetchRemote();if(r&&r.cats){setRem(r);S=fromRemote(r);save(true)}}
    render()
   }catch(ex){console.error(ex);er.textContent="تعذر التحقق من البيانات. تأكد من الاتصال وأن الصفحة مفتوحة عبر https."}}}
@@ -617,8 +713,8 @@ function userView(){
 /* ----- Admin ----- */
 function adminView(){
  const nav=[["dash",I.dash,"Dashboard"],["cats",I.folder,"Categories"],["codes",I.hash,"Short Codes"],["users",I.users,"Users"],["log",I.activity,"Activity"],["settings",I.gear,"Settings"]];
- const side=`<div class="side${menu?" open":""}"><div class="sbrand"><img src="${LOGO_W}" alt="etisalat and"><div><b>Short Code Assistant</b><small>Admin Panel</small></div></div>${nav.map(n=>`<a class="${page===n[0]?"on":""}" data-act="nav" data-id="${n[0]}">${n[1]}<span>${n[2]}</span></a>`).join("")}<div class="sp"></div><a class="tgl" data-act="theme">${TGI}<span class="lm">Dark Mode</span><span class="ld">Light Mode</span></a><div class="suser">${esc(session.name)}</div><a class="lo" data-act="logout">${I.logout}<span>Logout</span></a></div>`;
- $("#app").innerHTML=`<div class="top"><button data-act="menu" aria-label="Menu">${I.menu}</button><img src="${LOGO_W}" alt="etisalat and"><b>Short Code Assistant</b><button class="tg" data-act="theme" aria-label="Dark / Light mode">${TGI}</button></div><div class="shell">${side}<div class="main"><div id="syncbar">${syncHTML()}</div>${adminPage()}</div></div>`}
+ const side=`<div class="side${menu?" open":""}"><div class="sbrand"><img src="${LOGO_W}" alt="etisalat and"><div><b>Short Code Assistant</b><small>Admin Panel</small></div></div>${nav.map(n=>`<a class="${page===n[0]?"on":""}" data-act="nav" data-id="${n[0]}">${n[1]}<span>${n[2]}</span>${n[0]==="users"&&pendCount()?`<em class="nb">${pendCount()}</em>`:""}</a>`).join("")}<div class="sp"></div><a class="tgl" data-act="theme">${TGI}<span class="lm">Dark Mode</span><span class="ld">Light Mode</span></a><div class="suser">${esc(session.name)}</div><a class="lo" data-act="logout">${I.logout}<span>Logout</span></a></div>`;
+ $("#app").innerHTML=`<div class="top"><button data-act="menu" aria-label="Menu">${I.menu}</button><img src="${LOGO_W}" alt="etisalat and"><b>Short Code Assistant</b><button class="tg" data-act="theme" aria-label="Dark / Light mode">${TGI}</button></div><div class="shell">${side}<div class="main"><div id="syncbar">${syncHTML()}</div>${page==="users"&&pendCount()?reqSection():""}${adminPage()}${page==="users"&&!pendCount()?reqSection():""}${page==="settings"?rulesCard():""}</div></div>`}
 function adminPage(){
  if(page==="dash"){const tc=allCodes().length,au=S.users.filter(u=>u.status==="active").length;
   return`<div class="hd"><h2>Dashboard</h2></div><div class="stats">${[["Categories",S.categories.length,I.folder],["Short Codes",tc,I.hash],["Users",S.users.length,I.users],["Active Users",au,I.check]].map(s=>`<div class="st"><i class="si">${s[2]}</i><div><b>${s[1]}</b><span>${s[0]}</span></div></div>`).join("")}</div>`}
@@ -637,10 +733,24 @@ function act(a,id){
  const ok=()=>{save();render()};
  switch(a){
  case"close":closeModal();break;
- case"logout":closePop();q="";tok=null;session=null;ucat=ucode=null;menu=false;closeModal();render();break;
+ case"logout":lmode="in";closePop();q="";tok=null;session=null;ucat=ucode=null;menu=false;closeModal();render();break;
  case"theme":{const d=document.documentElement,n=d.dataset.theme==="dark"?"light":"dark";d.dataset.theme=n;try{localStorage.setItem("ShortCodeAssistant_theme",n)}catch(e){}break}
+ case"reqref":loadReqs();toast("جاري التحديث");break;
+ case"copyrules":copyText(($("#rulesTx")||{}).textContent||"").then(o=>toast(o?"تم نسخ القواعد":"تعذر النسخ",o?"":"err"));break;
+ case"reqok":{const q=REQ.list.find(x=>x.id===id);if(!q)break;
+  if(!/^[0-9a-f]{64}$/.test(q.hash)||!q.salt){toast("بيانات الطلب غير صالحة","err");break}
+  if(norm(q.username)==="admin"||S.users.some(x=>norm(x.username)===norm(q.username))){toast("اسم المستخدم موجود بالفعل","err");break}
+  S.users.push({id:uid(),name:q.name,username:q.username,status:"active",salt:q.salt,hash:q.hash});
+  REQ.list=REQ.list.filter(x=>x.id!==id);ok();toast("تمت الموافقة، تقدر "+q.name+" يدخل دلوقتي");
+  (async()=>{await pushRemote();try{if(!S._dirty)await reqDel(id);else await reqPatch(id,"approved")}catch(e){console.error(e)}})();break}
+ case"reqno":{const q=REQ.list.find(x=>x.id===id);if(!q)break;
+  confirmModal("رفض طلب «"+esc(q.name)+"»؟ مش هيقدر يدخل وهتظهر له رسالة إن الأدمن رفض دخوله.","Reject",async()=>{
+   try{await reqPatch(id,"rejected");q.status="rejected";render();toast("تم رفض الطلب")}catch(e){toast(fbMsg(e),"err")}},"Reject Request");break}
+ case"reqdel":{const q=REQ.list.find(x=>x.id===id);if(!q)break;
+  confirmModal("حذف الطلب نهائيًا؟ ممكن بعدها نفس اليوزر يقدّم من جديد.","Delete",async()=>{
+   try{await reqDel(id);REQ.list=REQ.list.filter(x=>x.id!==id);render();toast("تم حذف الطلب")}catch(e){toast(fbMsg(e),"err")}},"Delete Request");break}
  case"menu":menu=!menu;render();break;
- case"nav":page=id;menu=false;render();if(id==="log")act("logref");break;
+ case"nav":page=id;menu=false;render();if(id==="users")loadReqs();if(id==="log")act("logref");break;
  case"logref":{if(S._dirty||pushing){toast("فيه تعديلات لسه بتتحفظ، جرّب بعد لحظات","err");break}
   fetchRemote().then(r=>{if(!r||!r.cats){toast("تعذر جلب البيانات من Firebase","err");return}setRem(r);S=fromRemote(r);save(true);if(isAdm())render()});break}
  case"logclr":confirmModal("هل أنت متأكد من مسح سجل التعديلات؟","Clear",()=>{S.log=[];ok()},"Clear Log");break;
@@ -715,7 +825,7 @@ document.addEventListener("change",e=>{if(e.target.dataset&&e.target.dataset.chg
 
 document.addEventListener("change",e=>{if(e.target.id==="impf"){const f=e.target.files[0];e.target.value="";if(f)importJSON(f)}});
 window.addEventListener("error",e=>console.error(e.error||e.message));
-load().then(()=>{render();setInterval(poll,60000)});
+load().then(()=>{render();setInterval(poll,60000);setInterval(()=>{if(isAdm()&&!document.hidden)loadReqs()},30000)});
 </script>
 </body>
 </html>
