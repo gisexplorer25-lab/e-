@@ -730,16 +730,16 @@ function userBody(){
   const ks=allCodes().filter(x=>sn(x.k.name).includes(qq)||String(x.k.shortCode).includes(q.trim()));
   if(!fs.length&&!ks.length)return'<div class="empty">لا توجد نتائج مطابقة.</div>';
   return(fs.length?`<h3 class="sh">الفولدرات</h3><div class="grid fo5">${fs.map(folderBtn).join("")}</div>`:"")+
-   (ks.length?`<h3 class="sh">الأكواد</h3><div class="grid fo5 gs">${ks.map(x=>tileBtn(x.k,x.cat.name,sugOK()?2:0)).join("")}</div>`:"")}
+   (ks.length?`<h3 class="sh">الأكواد</h3><div class="grid fo5 gs">${ks.map(x=>tileBtn(x.k,x.cat.name,sugOK()?2:(session&&session.canEdit&&session.edit)?1:0)).join("")}</div>`:"")}
  const c=ucat&&findCat(ucat);
  if(!c){ucat=ucode=null;
   const em=!!(session&&session.canEdit&&session.edit),ab=em?'<div class="hd"><span></span><button class="btn" data-act="eaddcat">+ Add Folder</button></div>':"";
   return ab+(S.categories.length?`<div class="grid fo5">${S.categories.map(folderBtn).join("")}</div>`:'<div class="empty">لا توجد فئات حاليًا.</div>')}
  const ed=!!(session&&session.canEdit&&session.edit);
- return`<button class="btn gh bk" data-act="uback1">← Back to Categories</button><div class="hd"><h2 class="ttl">${esc(c.name)}</h2>${ed?'<button class="btn" data-act="eadd">+ Add Code</button>':""}</div>`+
+ return`<button class="btn gh bk" data-act="uback1">← Back to Categories</button><div class="hd"><h2 class="ttl">${esc(c.name)}</h2></div>`+
   (c.codes.length?`<div class="grid fo5 gs">${c.codes.map(k=>tileBtn(k,"",ed?1:sugOK()?2:0)).join("")}</div>`:'<div class="empty">لا توجد أكواد في هذه الفئة.</div>')}
 function userView(){
- $("#app").innerHTML=`<div class="uhead"><div class="ubrand"><img src="${LOGO_W}" alt="etisalat and"><span class="vr"></span><div><h1>Short Code Assistant</h1><small>Welcome, ${esc(session.name)}${session.canEdit?'<button class="pen'+(session.edit?" on":"")+'" data-act="etoggle" title="وضع التعديل">✎</button>'+(session.edit?" وضع التعديل مفعّل":""):""}</small></div></div><div class="uact">${sugOK()?`<button class="tg sug" data-act="sugadd" title="اقتراح كود جديد" aria-label="اقتراح كود جديد">${I.plus}</button>`:""}<button class="tg" data-act="theme" title="Dark / Light" aria-label="Dark / Light mode">${TGI}</button><button class="btn gh sm lob" data-act="logout">${I.logout}<span>Logout</span></button></div></div><div class="uwrap"><div id="syncbar">${syncHTML()}</div><div class="sb"><span class="sbi">${I.search}</span><input id="uq" placeholder="ابحث في الفولدرات أو أسماء الأكواد..." value="${esc(q)}" autocomplete="off"><button class="x" id="qx" data-act="qclear"${q?"":" hidden"}>✕</button></div><div id="ubody">${userBody()}</div></div>`}
+ $("#app").innerHTML=`<div class="uhead"><div class="ubrand"><img src="${LOGO_W}" alt="etisalat and"><span class="vr"></span><div><h1>Short Code Assistant</h1><small>Welcome, ${esc(session.name)}${session.canEdit?'<button class="pen'+(session.edit?" on":"")+'" data-act="etoggle" title="وضع التعديل">✎</button>'+(session.edit?" وضع التعديل مفعّل":""):""}</small></div></div><div class="uact">${(session&&session.role==="user"&&session.canEdit)?`<button class="tg sug" data-act="dadd" title="إضافة كود جديد" aria-label="إضافة كود جديد">${I.plus}</button>`:""}${sugOK()?`<button class="tg sug" data-act="sugadd" title="اقتراح كود جديد" aria-label="اقتراح كود جديد">${I.plus}</button>`:""}<button class="tg" data-act="theme" title="Dark / Light" aria-label="Dark / Light mode">${TGI}</button><button class="btn gh sm lob" data-act="logout">${I.logout}<span>Logout</span></button></div></div><div class="uwrap"><div id="syncbar">${syncHTML()}</div><div class="sb"><span class="sbi">${I.search}</span><input id="uq" placeholder="ابحث في الفولدرات أو أسماء الأكواد..." value="${esc(q)}" autocomplete="off"><button class="x" id="qx" data-act="qclear"${q?"":" hidden"}>✕</button></div><div id="ubody">${userBody()}</div></div>`}
 
 /* ----- Admin ----- */
 function adminView(){
@@ -839,7 +839,16 @@ function act(a,id){
    const n=d.name.trim();if(!n)return"اسم الفولدر مطلوب.";
    if(S.categories.some(x=>norm(x.name)===norm(n)))return"هذه الفئة موجودة بالفعل.";
    S.categories.push({id:uid(),name:n,description:"",created:today(),codes:[]});logAct({a:"addFolder",c:n});save();refreshUI()});break}
- case"eadd":case"ecode":{if(!session||!session.canEdit||!session.edit)break;const c=findCat(ucat);if(!c)break;const k=a==="ecode"?c.codes.find(x=>x.id===id):null;
+ case"dadd":{if(!session||session.role!=="user"||!session.canEdit)break;
+  if(!S.categories.length){toast("لا توجد فولدرات، فعّل وضع التعديل وأضف فولدر أولًا","err");break}
+  const sel=`<div class="fld"><label>Folder *</label><select name="cat">${S.categories.map(c=>`<option value="${c.id}"${ucat===c.id?" selected":""}>${esc(c.name)}</option>`).join("")}</select></div>`;
+  formModal("Add Code",sel+inp("Code Name","name","","text",1)+inp("Short Code","shortCode","","text",1)+txa("Description (اختياري)","description",""),"Create",d=>{
+   const n=d.name.trim(),sc=String(d.shortCode).trim(),c=findCat(d.cat);
+   if(!n||!sc)return"اسم الكود والكود مطلوبان.";if(!c)return"الفولدر غير صالح.";
+   if(c.codes.some(x=>norm(x.name)===norm(n)))return"اسم الكود موجود بالفعل في هذه الفئة.";
+   logAct({a:"addCode",c:c.name,k:n,n:sc});c.codes.push({id:uid(),name:n,shortCode:sc,description:d.description.trim()});
+   save();refreshUI();toast("✓ تم إضافة الكود")});break}
+ case"ecode":{if(!session||!session.canEdit||!session.edit)break;const fx=allCodes().find(x=>x.k.id===id);if(!fx)break;const c=fx.cat,k=fx.k;
   formModal(k?"Edit Code":"Add Code",inp("Code Name","name",k?k.name:"","text",1)+inp("Short Code","shortCode",k?k.shortCode:"","text",1)+txa("Description (اختياري)","description",k?k.description:""),k?"Save":"Create",d=>{
    const n=d.name.trim(),sc=String(d.shortCode).trim();if(!n||!sc)return"اسم الكود والكود مطلوبان.";
    if(c.codes.some(x=>norm(x.name)===norm(n)&&(!k||x.id!==k.id)))return"اسم الكود موجود بالفعل في هذه الفئة.";
