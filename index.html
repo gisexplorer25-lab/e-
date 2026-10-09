@@ -514,7 +514,7 @@ async function poll(){
  if(isAdm()){render();return}
  if(session&&session.role==="user"){const u=S.users.find(x=>x.id===session.uid);
   if(!u||u.status!=="active"){act("logout");toast("تم إيقاف هذا الحساب","err");return}
-  if(session.canEdit&&!u.edit){session.canEdit=false;session.edit=false;render();toast("تم إلغاء صلاحية التعديل","err")}
+  if(!u.edit&&(session.canEdit||session.wantEdit)){session.canEdit=false;session.wantEdit=false;session.edit=false;render();toast("تم إلغاء صلاحية التعديل","err")}
   const b=$("#ubody");if(b){b.innerHTML=userBody();toast("تم تحديث الأكواد")}}}
 function toast(m,t){const e=document.createElement("div");e.className="tt"+(t==="err"?" err":"");e.textContent=m;$("#toast").appendChild(e);setTimeout(()=>e.remove(),2600)}
 async function copyText(t){
@@ -696,11 +696,11 @@ function loginView(){
   if(!u||!p){er.textContent="يرجى إدخال اسم المستخدم وكلمة المرور.";return}
   try{
    let x=S.users.find(v=>norm(v.username)===u);
-   if(!x&&!raw.includes("@")){er.textContent="جاري التحقق...";await refreshUsers();x=S.users.find(v=>norm(v.username)===u);er.textContent=""}
+   if(!raw.includes("@")){er.textContent="جاري التحقق...";await refreshUsers();x=S.users.find(v=>norm(v.username)===u);er.textContent=""}
    if(x){
     if(await H(x.salt,p)!==x.hash){er.textContent=bad;return}
     if(x.status!=="active"){er.textContent="هذا الحساب غير مفعل، يرجى التواصل مع الإدارة.";return}
-    session={role:"user",name:x.name,uid:x.id,canEdit:false};ucat=ucode=null;remember();
+    session={role:"user",name:x.name,uid:x.id,canEdit:false,wantEdit:!!x.edit};ucat=ucode=null;remember();
     if(x.edit&&x.authEmail){try{await fbSignIn(x.authEmail,p);session.canEdit=true}catch(ex){toast("تعذر تفعيل صلاحية التعديل: "+fbMsg(ex),"err")}}
     render();return}
    if(!raw.includes("@")&&!(u==="admin"&&ADMIN_EMAIL)){
@@ -722,7 +722,7 @@ let q="";
 const sn=t=>String(t||"").toLowerCase().replace(/[\u064B-\u0652\u0640]/g,"").replace(/[أإآٱ]/g,"ا").replace(/ى/g,"ي").replace(/ة/g,"ه").trim();
 const folderBtn=c=>`<button class="fo" data-act="ucat" data-id="${c.id}"><span class="fi">${I.folder}</span><b>${esc(c.name)}</b><small>${c.codes.length} Codes</small></button>`;
 const tileBtn=(k,lab,ed)=>`<div class="tw2"><button class="cc code" data-act="ucode" data-id="${k.id}"><b>${esc(k.name)}</b>${lab?`<small>${esc(lab)}</small>`:""}</button>${ed===2?`<span class="te sg"><button data-act="sugedit" data-id="${k.id}" title="اقتراح تعديل">✎</button></span>`:ed?`<span class="te"><button data-act="ecode" data-id="${k.id}" title="تعديل">✎</button></span>`:""}</div>`;
-const sugOK=()=>!!(session&&session.role==="user"&&!session.canEdit);
+const sugOK=()=>!!(session&&session.role==="user"&&!session.canEdit&&!session.wantEdit);
 function userBody(){
  const qq=sn(q);
  if(qq){
@@ -739,7 +739,7 @@ function userBody(){
  return`<button class="btn gh bk" data-act="uback1">← Back to Categories</button><div class="hd"><h2 class="ttl">${esc(c.name)}</h2></div>`+
   (c.codes.length?`<div class="grid fo5 gs">${c.codes.map(k=>tileBtn(k,"",ed?1:sugOK()?2:0)).join("")}</div>`:'<div class="empty">لا توجد أكواد في هذه الفئة.</div>')}
 function userView(){
- $("#app").innerHTML=`<div class="uhead"><div class="ubrand"><img src="${LOGO_W}" alt="etisalat and"><span class="vr"></span><div><h1>Short Code Assistant</h1><small>Welcome, ${esc(session.name)}${session.canEdit?'<button class="pen'+(session.edit?" on":"")+'" data-act="etoggle" title="وضع التعديل">✎</button>'+(session.edit?" وضع التعديل مفعّل":""):""}</small></div></div><div class="uact">${(session&&session.role==="user"&&session.canEdit)?`<button class="tg sug" data-act="dadd" title="إضافة كود جديد" aria-label="إضافة كود جديد">${I.plus}</button>`:""}${sugOK()?`<button class="tg sug" data-act="sugadd" title="اقتراح كود جديد" aria-label="اقتراح كود جديد">${I.plus}</button>`:""}<button class="tg" data-act="theme" title="Dark / Light" aria-label="Dark / Light mode">${TGI}</button><button class="btn gh sm lob" data-act="logout">${I.logout}<span>Logout</span></button></div></div><div class="uwrap"><div id="syncbar">${syncHTML()}</div><div class="sb"><span class="sbi">${I.search}</span><input id="uq" placeholder="ابحث في الفولدرات أو أسماء الأكواد..." value="${esc(q)}" autocomplete="off"><button class="x" id="qx" data-act="qclear"${q?"":" hidden"}>✕</button></div><div id="ubody">${userBody()}</div></div>`}
+ $("#app").innerHTML=`<div class="uhead"><div class="ubrand"><img src="${LOGO_W}" alt="etisalat and"><span class="vr"></span><div><h1>Short Code Assistant</h1><small>Welcome, ${esc(session.name)}${session.canEdit?'<button class="pen'+(session.edit?" on":"")+'" data-act="etoggle" title="وضع التعديل">✎</button>'+(session.edit?" وضع التعديل مفعّل":""):""}</small></div></div><div class="uact">${(session&&session.role==="user"&&session.canEdit)?`<button class="tg sug" data-act="dadd" title="إضافة كود جديد" aria-label="إضافة كود جديد">${I.plus}</button>`:""}${(session&&session.role==="user"&&session.wantEdit&&!session.canEdit)?`<button class="tg" data-act="logout" title="صلاحية التعديل لم تُفعّل — سجّل خروج وادخل تاني" style="color:#e00800;font-weight:700">⚠</button>`:""}${sugOK()?`<button class="tg sug" data-act="sugadd" title="اقتراح كود جديد" aria-label="اقتراح كود جديد">${I.plus}</button>`:""}<button class="tg" data-act="theme" title="Dark / Light" aria-label="Dark / Light mode">${TGI}</button><button class="btn gh sm lob" data-act="logout">${I.logout}<span>Logout</span></button></div></div><div class="uwrap"><div id="syncbar">${syncHTML()}</div><div class="sb"><span class="sbi">${I.search}</span><input id="uq" placeholder="ابحث في الفولدرات أو أسماء الأكواد..." value="${esc(q)}" autocomplete="off"><button class="x" id="qx" data-act="qclear"${q?"":" hidden"}>✕</button></div><div id="ubody">${userBody()}</div></div>`}
 
 /* ----- Admin ----- */
 function adminView(){
