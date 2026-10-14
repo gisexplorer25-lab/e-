@@ -502,6 +502,7 @@ html:not([data-theme=dark]) .uhead .btn.gh:hover{background:#ffffff26}
 /* ===== Employee side menu + lists + description copy ===== */
 .ushell{display:flex;align-items:flex-start;max-width:1440px;margin:0 auto}
 .ushell .uwrap{flex:1;min-width:0;margin:0}
+.ushell.nos .uwrap{margin:0 auto}
 .uside{width:260px;flex-shrink:0;position:sticky;top:76px;max-height:calc(100vh - 76px);overflow-y:auto;padding:28px 0 28px;padding-inline-start:20px}
 .uside .band{display:flex;align-items:center;gap:10px;padding:12px 14px;border-radius:12px;background:var(--card);box-shadow:0 0 0 1px var(--bd);cursor:pointer;font-weight:700;color:var(--tx);margin-bottom:8px;transition:background .15s}
 .uside .band:hover{background:#c8332b14}
@@ -930,7 +931,7 @@ function userBody(){
  return`<button class="btn gh bk" data-act="uback1">← Back to Categories</button><div class="hd"><h2 class="ttl">${esc(c.name)}</h2>${ed?'<button class="btn" data-act="dadd">+ Add Code</button>':""}</div>`+
   (c.codes.length?`<div class="grid fo5 gs">${c.codes.map(k=>tileBtn(k,"",ed?1:0,c.id)).join("")}</div>`:'<div class="empty">لا توجد أكواد في هذه الفئة.</div>')}
 function userView(){
- $("#app").innerHTML=`<div class="uhead"><div class="ubrand"><img src="${LOGO_W}" alt="etisalat and"><span class="vr"></span><div><h1>Short Code Assistant</h1><small>Welcome, ${esc(session.name)}${session.canEdit?'<button class="pen'+(session.edit?" on":"")+'" data-act="etoggle" title="وضع التعديل">✎</button>'+(session.edit?" وضع التعديل مفعّل":""):""}</small></div></div><div class="uact">${(session&&session.role==="user"&&session.wantEdit&&!session.canEdit)?`<button class="tg" data-act="logout" title="صلاحية التعديل لم تُفعّل — سجّل خروج وادخل تاني" style="color:#c8332b;font-weight:700">⚠</button>`:""}${sugOK()?`<button class="tg sug" data-act="sugadd" title="اقتراح كود جديد" aria-label="اقتراح كود جديد">${I.plus}</button>`:""}<button class="tg umb" data-act="us_menu" title="القوائم" aria-label="القوائم">${I.menu}</button><button class="tg nbell" id="nbell" data-act="nopen" title="الإشعارات" aria-label="الإشعارات">${I.bell}${unreadN()?`<em class="nbd">${unreadN()>9?"9+":unreadN()}</em>`:""}</button><button class="tg rf${updAvail?" new":""}" id="rfb" data-act="urefresh" title="تحديث الأكواد" aria-label="تحديث الأكواد">${RFI}</button><button class="tg" data-act="theme" title="Dark / Light" aria-label="Dark / Light mode">${TGI}</button><button class="btn gh sm lob" data-act="logout">${I.logout}<span>Logout</span></button></div></div><div class="ushell">${uSide()}<div class="uwrap">${(session.wantEdit&&!session.canEdit)?`<div class="bn" style="margin-bottom:12px"><span>⚠ صلاحية التعديل غير مفعّلة على حسابك: ${esc(session.editErr||"تعذر تسجيل الدخول لصلاحية التعديل")}</span></div>`:""}<div id="syncbar">${syncHTML()}</div><div class="sb"><span class="sbi">${I.search}</span><input id="uq" placeholder="ابحث في الفولدرات أو أسماء الأكواد..." value="${esc(q)}" autocomplete="off"><button class="x" id="qx" data-act="qclear"${q?"":" hidden"}>✕</button></div><div id="ubody" class="in">${userBody()}</div></div></div>`}
+ $("#app").innerHTML=`<div class="uhead"><div class="ubrand"><img src="${LOGO_W}" alt="etisalat and"><span class="vr"></span><div><h1>Short Code Assistant</h1><small>Welcome, ${esc(session.name)}${session.canEdit?'<button class="pen'+(session.edit?" on":"")+'" data-act="etoggle" title="وضع التعديل">✎</button>'+(session.edit?" وضع التعديل مفعّل":""):""}</small></div></div><div class="uact">${(session&&session.role==="user"&&session.wantEdit&&!session.canEdit)?`<button class="tg" data-act="logout" title="صلاحية التعديل لم تُفعّل — سجّل خروج وادخل تاني" style="color:#c8332b;font-weight:700">⚠</button>`:""}${sugOK()?`<button class="tg sug" data-act="sugadd" title="اقتراح كود جديد" aria-label="اقتراح كود جديد">${I.plus}</button>`:""}${LST.length?`<button class="tg umb" data-act="us_menu" title="القوائم" aria-label="القوائم">${I.menu}</button>`:""}<button class="tg nbell" id="nbell" data-act="nopen" title="الإشعارات" aria-label="الإشعارات">${I.bell}${unreadN()?`<em class="nbd">${unreadN()>9?"9+":unreadN()}</em>`:""}</button><button class="tg rf${updAvail?" new":""}" id="rfb" data-act="urefresh" title="تحديث الأكواد" aria-label="تحديث الأكواد">${RFI}</button><button class="tg" data-act="theme" title="Dark / Light" aria-label="Dark / Light mode">${TGI}</button><button class="btn gh sm lob" data-act="logout">${I.logout}<span>Logout</span></button></div></div><div class="ushell${LST.length?"":" nos"}">${uSide()}<div class="uwrap">${(session.wantEdit&&!session.canEdit)?`<div class="bn" style="margin-bottom:12px"><span>⚠ صلاحية التعديل غير مفعّلة على حسابك: ${esc(session.editErr||"تعذر تسجيل الدخول لصلاحية التعديل")}</span></div>`:""}<div id="syncbar">${syncHTML()}</div><div class="sb"><span class="sbi">${I.search}</span><input id="uq" placeholder="ابحث في الفولدرات أو أسماء الأكواد..." value="${esc(q)}" autocomplete="off"><button class="x" id="qx" data-act="qclear"${q?"":" hidden"}>✕</button></div><div id="ubody" class="in">${userBody()}</div></div></div>`}
 
 /* ----- Admin ----- */
 function adminView(){
@@ -1024,29 +1025,33 @@ let uview="codes",ufold=null,uside=false,LST=[],LOK=false,lopen=null,lfold=null,
 const lItem=i=>({id:String(i.id),name:String(i.name||""),value:String(i.value==null?"":i.value),description:String(i.description||""),showDesc:i.showDesc===true});
 const lParse=t=>{try{const a=JSON.parse(t||"[]");return Array.isArray(a)?a.filter(x=>x&&x.id).map(l=>{
  const fo=Array.isArray(l.folders)?l.folders:(Array.isArray(l.items)&&l.items.length?[{id:"f"+l.id,name:"عام",copy:true,items:l.items}]:[]);
- return{id:String(l.id),name:String(l.name||""),folders:fo.filter(f=>f&&f.id).map(f=>({id:String(f.id),name:String(f.name||""),copy:f.copy===true,items:(Array.isArray(f.items)?f.items:[]).filter(i=>i&&i.id).map(lItem)}))}}):[]}catch(e){return[]}};
-const lCnt=l=>l.folders.reduce((n,f)=>n+f.items.length,0);
+ return{id:String(l.id),name:String(l.name||""),folders:fo.filter(f=>f&&f.id).map(f=>({id:String(f.id),name:String(f.name||""),ref:String(f.ref||""),copy:f.copy===true,items:(Array.isArray(f.items)?f.items:[]).filter(i=>i&&i.id).map(lItem)}))}}):[]}catch(e){return[]}};
+const lFolders=l=>l.folders.map(f=>{if(!f.ref)return f;const c=findCat(f.ref);return c?{id:f.id,ref:f.ref,name:c.name,copy:f.copy,items:c.codes.map(k=>({id:k.id,name:k.name,value:k.shortCode,description:k.description||"",showDesc:k.showDesc===true}))}:null}).filter(Boolean);
+const lCnt=l=>lFolders(l).reduce((n,f)=>n+f.items.length,0);
+const catPick=ex=>{const cs=S.categories.filter(c=>!ex.has(c.id));return cs.length?`<div class="fld"><label>إضافة فولدرات من الموجودين (اختياري)</label><div style="max-height:200px;overflow:auto;border:1px solid var(--bd);border-radius:12px;padding:6px 10px">${cs.map(c=>chk(esc(c.name),"c_"+c.id,false)).join("")}</div></div>`:'<p style="color:var(--mut)">كل الفولدرات الموجودة مضافة بالفعل.</p>'};
+const catPicked=d=>S.categories.filter(c=>d["c_"+c.id]).map(c=>c.id);
+const refEntry=(c,cp)=>({id:uid(),ref:c,name:"",copy:!!cp,items:[]});
+const CPL="السماح للموظفين بنسخ الأكواد (لو مش معلّم: للعرض فقط)";
 async function lPut(L){const idt=await fbToken();await putDoc("users",{lists:{stringValue:JSON.stringify(L)}},idt,null,false);LST=L;LOK=true}
 async function lMut(fn){if(!LOK)return"جاري تحميل القوائم، حاول بعد لحظة.";const L=JSON.parse(JSON.stringify(LST));const e=fn(L);if(e)return e;
  try{await lPut(L)}catch(x){console.error(x);return fbMsg(x)}return""}
-const fdItem=id=>{const c=allCodes().find(x=>x.k.id===id);if(c)return c.k;for(const l of LST)for(const f of l.folders){const i=f.items.find(x=>x.id===id);if(i)return i}return null};
+const fdItem=id=>{const c=allCodes().find(x=>x.k.id===id);if(c)return c.k;for(const l of LST)for(const f of lFolders(l)){const i=f.items.find(x=>x.id===id);if(i)return i}return null};
 const lTile=(x,f)=>tileBtn({id:x.id,name:x.name,shortCode:x.value,description:x.description,showDesc:x.showDesc,nc:!f.copy},"",0,f.id,"litem");
 const lFolder=f=>`<button class="fo" style="${fcs(f.id)}" data-act="us_fold" data-id="${f.id}"><span class="fi">${I.folder}</span><b>${hl(f.name)}</b><em class="cnt">${f.items.length} كود</em></button>`;
-function listBody(l){const qq=sn(q);
- if(qq){const fs=l.folders.filter(f=>sn(f.name).includes(qq)),ks=l.folders.flatMap(f=>f.items.filter(x=>sn(x.name).includes(qq)||String(x.value).includes(q.trim())).map(x=>({f,x})));
+function listBody(l){const qq=sn(q),LF=lFolders(l);
+ if(qq){const fs=LF.filter(f=>sn(f.name).includes(qq)),ks=LF.flatMap(f=>f.items.filter(x=>sn(x.name).includes(qq)||String(x.value).includes(q.trim())).map(x=>({f,x})));
   if(!fs.length&&!ks.length)return'<div class="empty">لا توجد نتائج مطابقة.</div>';
   return(fs.length?`<h3 class="sh">الفولدرات</h3><div class="grid fo5">${fs.map(lFolder).join("")}</div>`:"")+(ks.length?`<h3 class="sh">الأكواد</h3><div class="grid fo5 gs">${ks.map(k=>lTile(k.x,k.f)).join("")}</div>`:"")}
- const fo=ufold&&l.folders.find(f=>f.id===ufold);
+ const fo=ufold&&LF.find(f=>f.id===ufold);
  if(fo)return`<button class="btn gh bk" data-act="us_fback">← Back to ${esc(l.name)}</button><div class="hd"><h2 class="ttl">${esc(fo.name)}</h2>${fo.copy?"":'<span class="badge i">للعرض فقط</span>'}</div>`+(fo.items.length?`<div class="grid fo5 gs">${fo.items.map(x=>lTile(x,fo)).join("")}</div>`:'<div class="empty">لا توجد أكواد في هذا الفولدر.</div>');
- return`<div class="hd"><h2 class="ttl">${esc(l.name)}</h2></div>`+(l.folders.length?`<div class="grid fo5">${l.folders.map(lFolder).join("")}</div>`:'<div class="empty">لا توجد فولدرات في هذه القائمة.</div>')}
+ return`<button class="btn gh bk" data-act="us_home">← الرئيسية</button><div class="hd"><h2 class="ttl">${esc(l.name)}</h2></div>`+(LF.length?`<div class="grid fo5">${LF.map(lFolder).join("")}</div>`:'<div class="empty">لا توجد فولدرات في هذه القائمة.</div>')}
 function showView(k){closePop();const sv=String(k.shortCode),hd=String(k.description||"").trim();popDesc="";
  $("#pop").innerHTML=`<div class="pov" data-act="popclose"><div class="pbox nocp"><div class="pnm">${esc(k.name)}</div><div class="big${sv.length>18||sv.includes("\n")?" sm":""}">${esc(sv)}</div>${hd?`<div class="pdesc"><div class="pdt">${esc(hd)}</div></div>`:""}<div class="pok" style="color:var(--mut)">للعرض فقط — النسخ غير مفعّل</div><div class="pbar"><i style="animation-duration:10000ms"></i></div></div></div>`;
  popT=setTimeout(closePop,10000)}
 function uSide(){
+ if(!LST.length)return"";
  if(uview!=="codes"&&!LST.some(x=>x.id===uview))uview="codes";
- const on=v=>uview===v?" on":"";
- const fol=uview==="codes"?S.categories.map(c=>`<a class="sub${ucat===c.id?" on":""}" data-act="us_cat" data-id="${c.id}">${esc(c.name)}</a>`).join(""):"";
- return`<aside class="uside${uside?" open":""}"><a class="band${on("codes")}" data-act="us_view" data-id="codes">${I.hash}<span>قائمة الأكواد</span><em>${allCodes().length}</em></a>${fol}${LST.map(l=>`<a class="band${on(l.id)}" data-act="us_view" data-id="${l.id}">${I.list}<span>${esc(l.name)}</span><em>${lCnt(l)}</em></a>${uview===l.id?l.folders.map(f=>`<a class="sub${ufold===f.id?" on":""}" data-act="us_fold" data-id="${f.id}">${esc(f.name)}</a>`).join(""):""}`).join("")}</aside><div class="uov${uside?" open":""}" data-act="us_menu"></div>`}
+ return`<aside class="uside${uside?" open":""}">${LST.map(l=>`<a class="band${uview===l.id?" on":""}" data-act="us_view" data-id="${l.id}">${I.list}<span>${esc(l.name)}</span><em>${lCnt(l)}</em></a>${uview===l.id?lFolders(l).map(f=>`<a class="sub${ufold===f.id?" on":""}" data-act="us_fold" data-id="${f.id}">${esc(f.name)}</a>`).join(""):""}`).join("")}</aside><div class="uov${uside?" open":""}" data-act="us_menu"></div>`}
 function listsPage(){
  const l=lopen&&LST.find(x=>x.id===lopen);if(lopen&&!l)lopen=lfold=null;
  const fo=l&&lfold&&l.folders.find(x=>x.id===lfold);if(l&&lfold&&!fo)lfold=null;
@@ -1055,13 +1060,13 @@ function listsPage(){
   const rows=fo.items.map((x,i)=>`<tr><td>${mv("ls_iup","ls_idown",i,fo.items.length,x.id)}</td><td>${esc(x.name)}</td><td class="ncell">${esc(x.value)}</td><td class="ncell">${esc(x.description)}</td><td><button class="btn sm" data-act="ls_iedit" data-id="${x.id}">Edit</button><button class="btn rd sm" data-act="ls_idel" data-id="${x.id}">Delete</button></td></tr>`).join("");
   return`<button class="btn gh bk" data-act="ls_back">← Back to ${esc(l.name)}</button><div class="hd"><h2>${esc(l.name)} / ${esc(fo.name)} <span class="badge ${fo.copy?"a":"i"}">${fo.copy?"النسخ مسموح":"للعرض فقط"}</span></h2><button class="btn" data-act="ls_iadd">+ Add Code</button></div><div class="tw">${rows?`<table><tr><th>Order</th><th>Name</th><th>Content</th><th>Description</th><th>Actions</th></tr>${rows}</table>`:'<div class="empty">لا توجد أكواد. اضغط + Add Code.</div>'}</div>`}
  if(l){
-  const rows=l.folders.map((x,i)=>`<tr><td>${mv("ls_fup","ls_fdown",i,l.folders.length,x.id)}</td><td>${esc(x.name)}</td><td><span class="badge ${x.copy?"a":"i"}">${x.copy?"النسخ مسموح":"للعرض فقط"}</span></td><td>${x.items.length}</td><td><button class="btn sm" data-act="ls_fopen" data-id="${x.id}">Open</button><button class="btn gh sm" data-act="ls_fedit" data-id="${x.id}">Edit</button><button class="btn rd sm" data-act="ls_fdel" data-id="${x.id}">Delete</button></td></tr>`).join("");
-  return`<button class="btn gh bk" data-act="ls_back">← Back to Lists</button><div class="hd"><h2>${esc(l.name)}</h2><button class="btn" data-act="ls_fadd">+ Add Folder</button></div><div class="tw">${rows?`<table><tr><th>Order</th><th>Folder</th><th>Copy</th><th>Codes</th><th>Actions</th></tr>${rows}</table>`:'<div class="empty">لا توجد فولدرات. اضغط + Add Folder.</div>'}</div>`}
+  const rows=l.folders.map((x,i)=>{const r=x.ref?findCat(x.ref):null,nm=x.ref?(r?r.name:"(فولدر محذوف)"):x.name,cn=x.ref?(r?r.codes.length:0):x.items.length;return`<tr><td>${mv("ls_fup","ls_fdown",i,l.folders.length,x.id)}</td><td>${esc(nm)}${x.ref?' <span class="badge w">فولدر موجود</span>':""}</td><td><span class="badge ${x.copy?"a":"i"}">${x.copy?"النسخ مسموح":"للعرض فقط"}</span></td><td>${cn}</td><td>${x.ref?"":`<button class="btn sm" data-act="ls_fopen" data-id="${x.id}">Open</button>`}<button class="btn gh sm" data-act="ls_fedit" data-id="${x.id}">Edit</button><button class="btn rd sm" data-act="ls_fdel" data-id="${x.id}">Delete</button></td></tr>`}).join("");
+  return`<button class="btn gh bk" data-act="ls_back">← Back to Lists</button><div class="hd"><h2>${esc(l.name)}</h2><div class="row"><button class="btn gh" data-act="ls_fadd">+ New Folder</button><button class="btn" data-act="ls_fpick">+ Add Existing Folders</button></div></div><div class="tw">${rows?`<table><tr><th>Order</th><th>Folder</th><th>Copy</th><th>Codes</th><th>Actions</th></tr>${rows}</table>`:'<div class="empty">لا توجد فولدرات. اضغط + Add Folder.</div>'}</div>`}
  let body;
  if(!LOK&&!LST.length)body='<div class="empty"><i class=spn></i> جاري التحميل...</div>';
  else if(!LST.length)body='<div class="empty">لا توجد قوائم بعد. اضغط + Add List.</div>';
  else body=`<table><tr><th>Order</th><th>List Name</th><th>Folders</th><th>Codes</th><th>Actions</th></tr>${LST.map((x,i)=>`<tr><td>${mv("ls_up","ls_down",i,LST.length,x.id)}</td><td>${esc(x.name)}</td><td>${x.folders.length}</td><td>${lCnt(x)}</td><td><button class="btn sm" data-act="ls_open" data-id="${x.id}">Open</button><button class="btn gh sm" data-act="ls_edit" data-id="${x.id}">Rename</button><button class="btn rd sm" data-act="ls_del" data-id="${x.id}">Delete</button></td></tr>`).join("")}</table>`;
- return`<div class="hd"><h2>Lists</h2><button class="btn" data-act="ls_add">+ Add List</button></div><p style="margin-bottom:14px;color:var(--mut);line-height:1.8;font-size:.9rem">كل ليست بتظهر للموظفين في القائمة الجانبية تحت «قائمة الأكواد». جوه الليست فولدرات، وجوه الفولدر أكواد. من خانة النسخ في كل فولدر بتحدد الموظف يقدر ينسخ أكواده ولا للعرض فقط.</p><div class="tw">${body}</div>`}
+ return`<div class="hd"><h2>Lists</h2><button class="btn" data-act="ls_add">+ Add List</button></div><p style="margin-bottom:14px;color:var(--mut);line-height:1.8;font-size:.9rem">كل ليست بتظهر للموظفين في القائمة الجانبية (ومفيش أي قائمة بتظهر غير اللي بتعملها هنا). جوه الليست تقدر تضيف فولدرات من الموجودين أو تعمل فولدر جديد، ومن خانة النسخ بتحدد الموظف يقدر ينسخ ولا للعرض فقط.</p><div class="tw">${body}</div>`}
 function lAct(a,id){
  const go=p=>p.then(e=>{if(e)toast(e,"err");else render()});
  const fl=(L,i)=>L.find(x=>x.id===i);
@@ -1072,25 +1077,34 @@ function lAct(a,id){
  if(a==="us_cat"){uview="codes";ucat=id;ucode=null;q="";uside=false;render();return}
  if(a==="us_fold"){ufold=id;q="";uside=false;render();return}
  if(a==="us_fback"){ufold=null;render();return}
+ if(a==="us_home"){uview="codes";ufold=null;ucat=ucode=null;q="";uside=false;render();return}
  if(a==="us_menu"){uside=!uside;render();return}
  if(a==="cdesc"){const k=fdItem(id),t=k?String(k.description||"").trim():"";if(t)cp(t);return}
  if(a==="cdescp"){if(popDesc){cp(popDesc);clearTimeout(popT);popT=setTimeout(closePop,4000)}return}
- if(a==="litem"){for(const l of LST)for(const f of l.folders){const i=f.items.find(x=>x.id===id);if(i){(f.copy?showCode:showView)({name:i.name,shortCode:i.value,description:i.description});return}}return}
+ if(a==="litem"){for(const l of LST)for(const f of lFolders(l)){const i=f.items.find(x=>x.id===id);if(i){(f.copy?showCode:showView)({name:i.name,shortCode:i.value,description:i.description});return}}return}
  if(!isAdm())return;
  switch(a){
  case"ls_back":if(lfold)lfold=null;else lopen=null;render();break;
  case"ls_open":lopen=id;lfold=null;render();break;
  case"ls_fopen":lfold=id;render();break;
  case"ls_add":case"ls_edit":{const l=a==="ls_edit"?LST.find(x=>x.id===id):null;
-  formModal(l?"Rename List":"Add List",inp("اسم الليست","name",l?l.name:"","text",1),l?"Save":"Create",async d=>{
+  formModal(l?"Rename List":"Add List",inp("اسم الليست","name",l?l.name:"","text",1)+(l?"":catPick(new Set())+chk(CPL,"copy",false)),l?"Save":"Create",async d=>{
    const n=d.name.trim();if(!n)return"اسم الليست مطلوب.";if(n.length>60)return"الاسم طويل جدًا.";
    if(LST.some(x=>norm(x.name)===norm(n)&&(!l||x.id!==l.id)))return"الليست دي موجودة بالفعل.";
-   const e=await lMut(L=>{if(l){const t=fl(L,l.id);if(!t)return"الليست غير موجودة.";t.name=n}else L.push({id:uid(),name:n,folders:[]})});
+   const e=await lMut(L=>{if(l){const t=fl(L,l.id);if(!t)return"الليست غير موجودة.";t.name=n}else L.push({id:uid(),name:n,folders:catPicked(d).map(c=>refEntry(c,d.copy))})});
    if(e)return e;render();toast("✓ تم الحفظ — هتظهر للموظفين خلال لحظات")});break}
  case"ls_del":{const l=LST.find(x=>x.id===id);if(!l)break;
   confirmModal("حذف الليست «"+esc(l.name)+"» وكل الفولدرات والأكواد اللي فيها؟","Delete",()=>go(lMut(L=>{const i=L.findIndex(x=>x.id===id);if(i>=0)L.splice(i,1)})),"Delete List");break}
  case"ls_up":case"ls_down":go(lMut(L=>{swap(L,L.findIndex(x=>x.id===id),a==="ls_up"?-1:1)}));break;
+ case"ls_fpick":{const l=LST.find(x=>x.id===lopen);if(!l)break;
+  formModal("إضافة فولدرات موجودة",catPick(new Set(l.folders.filter(x=>x.ref).map(x=>x.ref)))+chk(CPL,"copy",false),"Add",async d=>{
+   const ids=catPicked(d);if(!ids.length)return"اختر فولدر واحد على الأقل.";
+   const e=await lMut(L=>{const t=fl(L,l.id);if(!t)return"الليست غير موجودة.";ids.forEach(c=>{if(!t.folders.some(f=>f.ref===c))t.folders.push(refEntry(c,d.copy))})});
+   if(e)return e;render();toast("✓ تمت الإضافة")});break}
  case"ls_fadd":case"ls_fedit":{const l=LST.find(x=>x.id===lopen);if(!l)break;const f=a==="ls_fedit"?l.folders.find(x=>x.id===id):null;
+  if(f&&f.ref){formModal("Folder Settings",'<p style="color:var(--mut);line-height:1.7;font-size:.9rem">الفولدر ده مربوط بفولدر موجود، فاسمه وأكواده بتتعدل من صفحة Categories / Short Codes.</p>'+chk(CPL,"copy",f.copy),"Save",async d=>{
+    const e=await lMut(L=>{const t=fl(L,l.id),o=t&&t.folders.find(x=>x.id===f.id);if(!o)return"الفولدر غير موجود.";o.copy=!!d.copy});
+    if(e)return e;render();toast("✓ تم الحفظ")});break}
   formModal(f?"Edit Folder":"Add Folder",inp("اسم الفولدر","name",f?f.name:"","text",1)+chk("السماح للموظفين بنسخ الأكواد اللي جوه الفولدر ده (لو مش معلّم: للعرض فقط)","copy",f&&f.copy),f?"Save":"Create",async d=>{
    const n=d.name.trim();if(!n)return"اسم الفولدر مطلوب.";if(n.length>60)return"الاسم طويل جدًا.";
    const e=await lMut(L=>{const t=fl(L,l.id);if(!t)return"الليست غير موجودة.";
@@ -1099,7 +1113,7 @@ function lAct(a,id){
     else t.folders.push({id:uid(),name:n,copy:!!d.copy,items:[]})});
    if(e)return e;render();toast("✓ تم الحفظ")});break}
  case"ls_fdel":{const l=LST.find(x=>x.id===lopen),f=l&&l.folders.find(x=>x.id===id);if(!f)break;
-  confirmModal("حذف الفولدر «"+esc(f.name)+"» وكل أكواده؟","Delete",()=>go(lMut(L=>{const t=fl(L,lopen);if(!t)return"الليست غير موجودة.";t.folders=t.folders.filter(x=>x.id!==id)})),"Delete Folder");break}
+  confirmModal(f.ref?"إزالة الفولدر من الليست؟ (الفولدر الأصلي وأكواده مش هيتحذفوا)":"حذف الفولدر «"+esc(f.name)+"» وكل أكواده؟","Delete",()=>go(lMut(L=>{const t=fl(L,lopen);if(!t)return"الليست غير موجودة.";t.folders=t.folders.filter(x=>x.id!==id)})),"Delete Folder");break}
  case"ls_fup":case"ls_fdown":go(lMut(L=>{const t=fl(L,lopen);if(!t)return"الليست غير موجودة.";swap(t.folders,t.folders.findIndex(x=>x.id===id),a==="ls_fup"?-1:1)}));break;
  case"ls_iup":case"ls_idown":go(lMut(L=>{const f=gf(L);if(!f)return"الفولدر غير موجود.";swap(f.items,f.items.findIndex(x=>x.id===id),a==="ls_iup"?-1:1)}));break;
  case"ls_idel":confirmModal("حذف هذا الكود؟","Delete",()=>go(lMut(L=>{const f=gf(L);if(!f)return"الفولدر غير موجود.";f.items=f.items.filter(x=>x.id!==id)})),"Delete Code");break;
