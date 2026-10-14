@@ -499,6 +499,38 @@ html:not([data-theme=dark]) .uhead .btn.gh:hover{background:#ffffff26}
 .ni small{color:var(--mut);display:flex;justify-content:space-between;align-items:center;gap:8px}
 .ni .nw{background:#c8332b;color:#fff;border-radius:99px;font-size:.7rem;padding:1px 9px;font-weight:700}
 .ncell{white-space:pre-wrap;word-break:break-word}
+/* ===== Employee side menu + lists + description copy ===== */
+.ushell{display:flex;align-items:flex-start;max-width:1440px;margin:0 auto}
+.ushell .uwrap{flex:1;min-width:0;margin:0}
+.uside{width:260px;flex-shrink:0;position:sticky;top:76px;max-height:calc(100vh - 76px);overflow-y:auto;padding:28px 0 28px;padding-inline-start:20px}
+.uside .band{display:flex;align-items:center;gap:10px;padding:12px 14px;border-radius:12px;background:var(--card);box-shadow:0 0 0 1px var(--bd);cursor:pointer;font-weight:700;color:var(--tx);margin-bottom:8px;transition:background .15s}
+.uside .band:hover{background:#c8332b14}
+.uside .band svg{width:19px;height:19px;flex-shrink:0;color:#c8332b}
+.uside .band span{flex:1;min-width:0;overflow-wrap:anywhere}
+.uside .band em{font-style:normal;font-size:.72rem;background:#c8332b1f;color:#c8332b;border-radius:99px;padding:2px 8px}
+.uside .band.on{background:#c8332b;color:#fff;box-shadow:none}
+.uside .band.on svg{color:#fff}.uside .band.on em{background:#ffffff33;color:#fff}
+.uside .sub{display:block;margin:0 12px 6px;padding:8px 12px;border-radius:9px;font-size:.88rem;cursor:pointer;color:var(--tx);opacity:.85;border-inline-start:3px solid var(--bd);overflow-wrap:anywhere}
+.uside .sub:hover{background:#c8332b14}
+.uside .sub.on{border-inline-start-color:#c8332b;background:#c8332b1f;font-weight:700;opacity:1}
+.uov{display:none}
+.tg.umb{display:none}
+@media(max-width:800px){
+ .ushell{display:block}
+ .uside{position:fixed;top:0;bottom:0;right:-290px;width:270px;max-height:none;z-index:45;background:var(--card);padding:76px 14px 24px;transition:right .2s;box-shadow:-10px 0 30px #0006}
+ .uside.open{right:0}
+ .uov.open{display:block;position:fixed;inset:0;background:#0008;z-index:44}
+ .tg.umb{display:grid}
+}
+.tw2.hasd .cc{padding-top:38px}
+.td{position:absolute;top:7px;inset-inline-start:7px;z-index:2}
+.td button{border:0;border-radius:99px;background:#c8332b;color:#fff;font-size:.68rem;font-weight:700;font-family:inherit;padding:4px 10px;cursor:pointer;display:flex;gap:5px;align-items:center}
+.td button:hover{background:#ae2a23}
+.td svg{width:12px;height:12px}
+.pdesc{text-align:start;background:#c8332b12;border:1px solid #c8332b44;border-radius:14px;padding:12px 14px;margin:0 0 18px}
+.pdt{white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.7;margin-bottom:10px;color:var(--tx);max-height:28vh;overflow:auto}
+.pbox.nocp,.pbox.nocp *{-webkit-user-select:none;user-select:none}
+.big.sm{font-size:clamp(1rem,4vw,1.35rem);font-weight:600;font-family:inherit;direction:rtl;unicode-bidi:plaintext;text-align:start;white-space:pre-wrap;padding:16px 14px}
 </style>
 <body>
 <div id="app"><div class="boot"><i class="spn big"></i><b>Short Code Assistant</b></div></div><input type="file" id="impx" accept=".csv,.xlsx,.xls,text/csv" hidden><div id="modal"></div><div id="pop"></div><div id="toast"></div>
@@ -567,9 +599,9 @@ async function fbToken(){
  tok.id=d.id_token;tok.ref=d.refresh_token;tok.exp=Date.now()+(+d.expires_in-60)*1000;return tok.id}
 async function getDoc(n){try{
  const r=await fetch(DOCS+n+"?key="+FB.apiKey,{cache:"no-store"});
- if(r.status===404)return{none:true,t:"",ut:null,e:"",n:""};if(!r.ok)return null;
+ if(r.status===404)return{none:true,t:"",ut:null,e:"",n:"",l:""};if(!r.ok)return null;
  const j=await r.json(),f=j.fields||{};
- return{t:(f.json&&f.json.stringValue)||"",ut:j.updateTime||null,e:Object.keys((f.editors&&f.editors.mapValue&&f.editors.mapValue.fields)||{}).sort().join(","),n:(f.notifs&&f.notifs.stringValue)||""}}catch(e){return null}}
+ return{t:(f.json&&f.json.stringValue)||"",ut:j.updateTime||null,e:Object.keys((f.editors&&f.editors.mapValue&&f.editors.mapValue.fields)||{}).sort().join(","),n:(f.notifs&&f.notifs.stringValue)||"",l:(f.lists&&f.lists.stringValue)||""}}catch(e){return null}}
 async function fetchRemote(om){
  const [c,u]=await Promise.all([getDoc("main"),om?Promise.resolve(null):getDoc("users")]);
  if(!c||(!om&&!u))return null;
@@ -678,8 +710,9 @@ function importJSON(file){
 let popT=null;
 function closePop(){clearTimeout(popT);const p=$("#pop");if(p)p.innerHTML=""}
 function showCode(k){closePop();
- $("#pop").innerHTML=`<div class="pov" data-act="popclose"><div class="pbox"><div class="pnm">${esc(k.name)}</div><div class="big">${esc(k.shortCode)}</div><div class="pok">✓ تم نسخ الكود</div><div class="pbar"><i></i></div></div></div>`;
- popT=setTimeout(closePop,3000);doCopy(k.shortCode)}
+ const hd=String(k.description||"").trim(),sv=String(k.shortCode),ms=hd?10000:3000;popDesc=hd;
+ $("#pop").innerHTML=`<div class="pov" data-act="popclose"><div class="pbox"><div class="pnm">${esc(k.name)}</div><div class="big${sv.length>18||sv.includes("\n")?" sm":""}">${esc(sv)}</div>${hd?`<div class="pdesc"><div class="pdt">${esc(hd)}</div><button class="btn sm" data-act="cdescp">${I.copy} نسخ الوصف</button></div>`:""}<div class="pok">✓ تم نسخ الكود</div><div class="pbar"><i style="animation-duration:${ms}ms"></i></div></div></div>`;
+ popT=setTimeout(closePop,ms);doCopy(k.shortCode)}
 const allCodes=()=>S.categories.flatMap(c=>c.codes.map(k=>({cat:c,k})));
 const findCat=id=>S.categories.find(c=>c.id===id);
 
@@ -849,7 +882,7 @@ function loginView(){
    if(x){
     if(await H(x.salt,p)!==x.hash){er.textContent=bad;return}
     if(x.status!=="active"){er.textContent="هذا الحساب غير مفعل، يرجى التواصل مع الإدارة.";return}
-    session={role:"user",name:x.name,uid:x.id,canEdit:false,wantEdit:!!x.edit};ucat=ucode=null;remember();NT={list:[],ok:false};nSeen=new Set();loadNotifs();
+    session={role:"user",name:x.name,uid:x.id,canEdit:false,wantEdit:!!x.edit};ucat=ucode=null;remember();NT={list:[],ok:false};nSeen=new Set();uview="codes";ufold=null;uside=false;LST=[];LOK=false;loadNotifs();
     if(x.edit&&!x.authEmail)session.editErr="حساب الموظف لم يُجهَّز للتعديل. من لوحة الأدمن > Users اضغط Edit على الموظف واكتب له كلمة مرور جديدة (6 أحرف على الأقل) مع إبقاء خانة التعديل مفعّلة.";
     else if(x.edit){try{await fbSignIn(x.authEmail,p);session.canEdit=true}catch(ex){const m=fbMsg(ex);session.editErr=m==="INVALID_LOGIN"?"كلمة مرور صلاحية التعديل لا تطابق كلمة مرور الموظف. من لوحة الأدمن > Users اضغط Edit واكتب كلمة مرور جديدة للموظف.":m;toast("تعذر تفعيل صلاحية التعديل","err")}}
     render();return}
@@ -862,7 +895,7 @@ function loginView(){
    if(!email){er.textContent=bad;return}
    er.textContent="جاري التحقق...";
    try{await fbSignIn(email,p)}catch(ex){const m=fbMsg(ex);er.textContent=m==="INVALID_LOGIN"?bad:m;return}
-   session={role:"admin",name:email};page="dash";remember();REQ={list:[],err:"",ok:false};loadReqs();CREQ={list:[],err:"",ok:false};loadCReqs();NT={list:[],ok:false};loadNotifs();
+   session={role:"admin",name:email};page="dash";remember();REQ={list:[],err:"",ok:false};loadReqs();CREQ={list:[],err:"",ok:false};loadCReqs();NT={list:[],ok:false};LST=[];LOK=false;lopen=lfold=null;loadNotifs();
    if(S._dirty)pushRemote();else{const r=await fetchRemote();if(r&&r.cats){setRem(r);S=fromRemote(r);save(true)}}
    render()
   }catch(ex){console.error(ex);er.textContent="تعذر التحقق من البيانات. تأكد من الاتصال وأن الصفحة مفتوحة عبر https."}}}
@@ -878,10 +911,11 @@ function hl(t){t=String(t==null?"":t);const qq=sn(q);if(!qq)return esc(t);
  let o="",last=0,from=0,p;while((p=n.indexOf(qq,from))>=0){const a=m[p],b=m[p+qq.length-1]+1;if(a>=last){o+=esc(t.slice(last,a))+"<mark>"+esc(t.slice(a,b))+"</mark>";last=b}from=p+qq.length}
  return o+esc(t.slice(last))}
 const folderBtn=c=>`<button class="fo" style="${fcs(c.id)}" data-act="ucat" data-id="${c.id}"><span class="fi">${I.folder}</span><b>${hl(c.name)}</b><em class="cnt">${c.codes.length} كود</em></button>`;
-const tileBtn=(k,lab,ed,cid)=>`<div class="tw2" style="${fcs(cid||k.id)}"><button class="cc code" data-act="ucode" data-id="${k.id}"><b>${hl(k.name)}</b>${k.showDesc&&String(k.description||"").trim()?`<small class="cd">${esc(k.description.trim())}</small>`:""}${lab?`<small>${esc(lab)}</small>`:""}</button>${ed===2?`<span class="te sg"><button data-act="sugedit" data-id="${k.id}" title="اقتراح تعديل">✎</button></span>`:ed?`<span class="te"><button data-act="ecode" data-id="${k.id}" title="تعديل">✎</button></span>`:""}</div>`;
+const tileBtn=(k,lab,ed,cid,ac)=>{const hd=!!String(k.description||"").trim()&&!k.nc;return`<div class="tw2${hd?" hasd":""}" style="${fcs(cid||k.id)}"><button class="cc code" data-act="${ac||"ucode"}" data-id="${k.id}"><b>${hl(k.name)}</b>${k.showDesc&&String(k.description||"").trim()?`<small class="cd">${esc(k.description.trim())}</small>`:""}${lab?`<small>${esc(lab)}</small>`:""}</button>${ed===2?`<span class="te sg"><button data-act="sugedit" data-id="${k.id}" title="اقتراح تعديل">✎</button></span>`:ed?`<span class="te"><button data-act="ecode" data-id="${k.id}" title="تعديل">✎</button></span>`:""}${hd?`<span class="td"><button data-act="cdesc" data-id="${k.id}" title="نسخ الوصف">${I.copy} نسخ الوصف</button></span>`:""}</div>`};
 const sugOK=()=>!!(session&&session.role==="user"&&!session.canEdit&&!session.wantEdit);
 function userBody(){
  const qq=sn(q);
+ if(uview!=="codes"){const l=LST.find(x=>x.id===uview);if(l)return listBody(l);uview="codes"}
  if(qq){
   const fs=S.categories.filter(c=>sn(c.name).includes(qq));
   const ks=allCodes().filter(x=>sn(x.k.name).includes(qq)||String(x.k.shortCode).includes(q.trim()));
@@ -896,17 +930,18 @@ function userBody(){
  return`<button class="btn gh bk" data-act="uback1">← Back to Categories</button><div class="hd"><h2 class="ttl">${esc(c.name)}</h2>${ed?'<button class="btn" data-act="dadd">+ Add Code</button>':""}</div>`+
   (c.codes.length?`<div class="grid fo5 gs">${c.codes.map(k=>tileBtn(k,"",ed?1:0,c.id)).join("")}</div>`:'<div class="empty">لا توجد أكواد في هذه الفئة.</div>')}
 function userView(){
- $("#app").innerHTML=`<div class="uhead"><div class="ubrand"><img src="${LOGO_W}" alt="etisalat and"><span class="vr"></span><div><h1>Short Code Assistant</h1><small>Welcome, ${esc(session.name)}${session.canEdit?'<button class="pen'+(session.edit?" on":"")+'" data-act="etoggle" title="وضع التعديل">✎</button>'+(session.edit?" وضع التعديل مفعّل":""):""}</small></div></div><div class="uact">${(session&&session.role==="user"&&session.wantEdit&&!session.canEdit)?`<button class="tg" data-act="logout" title="صلاحية التعديل لم تُفعّل — سجّل خروج وادخل تاني" style="color:#c8332b;font-weight:700">⚠</button>`:""}${sugOK()?`<button class="tg sug" data-act="sugadd" title="اقتراح كود جديد" aria-label="اقتراح كود جديد">${I.plus}</button>`:""}<button class="tg nbell" id="nbell" data-act="nopen" title="الإشعارات" aria-label="الإشعارات">${I.bell}${unreadN()?`<em class="nbd">${unreadN()>9?"9+":unreadN()}</em>`:""}</button><button class="tg rf${updAvail?" new":""}" id="rfb" data-act="urefresh" title="تحديث الأكواد" aria-label="تحديث الأكواد">${RFI}</button><button class="tg" data-act="theme" title="Dark / Light" aria-label="Dark / Light mode">${TGI}</button><button class="btn gh sm lob" data-act="logout">${I.logout}<span>Logout</span></button></div></div><div class="uwrap">${(session.wantEdit&&!session.canEdit)?`<div class="bn" style="margin-bottom:12px"><span>⚠ صلاحية التعديل غير مفعّلة على حسابك: ${esc(session.editErr||"تعذر تسجيل الدخول لصلاحية التعديل")}</span></div>`:""}<div id="syncbar">${syncHTML()}</div><div class="sb"><span class="sbi">${I.search}</span><input id="uq" placeholder="ابحث في الفولدرات أو أسماء الأكواد..." value="${esc(q)}" autocomplete="off"><button class="x" id="qx" data-act="qclear"${q?"":" hidden"}>✕</button></div><div id="ubody" class="in">${userBody()}</div></div>`}
+ $("#app").innerHTML=`<div class="uhead"><div class="ubrand"><img src="${LOGO_W}" alt="etisalat and"><span class="vr"></span><div><h1>Short Code Assistant</h1><small>Welcome, ${esc(session.name)}${session.canEdit?'<button class="pen'+(session.edit?" on":"")+'" data-act="etoggle" title="وضع التعديل">✎</button>'+(session.edit?" وضع التعديل مفعّل":""):""}</small></div></div><div class="uact">${(session&&session.role==="user"&&session.wantEdit&&!session.canEdit)?`<button class="tg" data-act="logout" title="صلاحية التعديل لم تُفعّل — سجّل خروج وادخل تاني" style="color:#c8332b;font-weight:700">⚠</button>`:""}${sugOK()?`<button class="tg sug" data-act="sugadd" title="اقتراح كود جديد" aria-label="اقتراح كود جديد">${I.plus}</button>`:""}<button class="tg umb" data-act="us_menu" title="القوائم" aria-label="القوائم">${I.menu}</button><button class="tg nbell" id="nbell" data-act="nopen" title="الإشعارات" aria-label="الإشعارات">${I.bell}${unreadN()?`<em class="nbd">${unreadN()>9?"9+":unreadN()}</em>`:""}</button><button class="tg rf${updAvail?" new":""}" id="rfb" data-act="urefresh" title="تحديث الأكواد" aria-label="تحديث الأكواد">${RFI}</button><button class="tg" data-act="theme" title="Dark / Light" aria-label="Dark / Light mode">${TGI}</button><button class="btn gh sm lob" data-act="logout">${I.logout}<span>Logout</span></button></div></div><div class="ushell">${uSide()}<div class="uwrap">${(session.wantEdit&&!session.canEdit)?`<div class="bn" style="margin-bottom:12px"><span>⚠ صلاحية التعديل غير مفعّلة على حسابك: ${esc(session.editErr||"تعذر تسجيل الدخول لصلاحية التعديل")}</span></div>`:""}<div id="syncbar">${syncHTML()}</div><div class="sb"><span class="sbi">${I.search}</span><input id="uq" placeholder="ابحث في الفولدرات أو أسماء الأكواد..." value="${esc(q)}" autocomplete="off"><button class="x" id="qx" data-act="qclear"${q?"":" hidden"}>✕</button></div><div id="ubody" class="in">${userBody()}</div></div></div>`}
 
 /* ----- Admin ----- */
 function adminView(){
- const nav=[["dash",I.dash,"Dashboard"],["cats",I.folder,"Categories"],["codes",I.hash,"Short Codes"],["creq",I.inbox,"Code Requests"],["notif",I.bell,"Notifications"],["users",I.users,"Users"],["log",I.activity,"Activity"],["settings",I.gear,"Settings"]];
+ const nav=[["dash",I.dash,"Dashboard"],["cats",I.folder,"Categories"],["codes",I.hash,"Short Codes"],["creq",I.inbox,"Code Requests"],["notif",I.bell,"Notifications"],["lists",I.list,"Lists"],["users",I.users,"Users"],["log",I.activity,"Activity"],["settings",I.gear,"Settings"]];
  const side=`<div class="side${menu?" open":""}"><div class="sbrand"><img src="${LOGO_W}" alt="etisalat and"><div><b>Short Code Assistant</b><small>Admin Panel</small></div></div>${nav.map(n=>`<a class="${page===n[0]?"on":""}" data-act="nav" data-id="${n[0]}">${n[1]}<span>${n[2]}</span>${(n[0]==="users"?pendCount():n[0]==="creq"?cpend():0)?`<em class="nb">${n[0]==="users"?pendCount():cpend()}</em>`:""}</a>`).join("")}<div class="sp"></div><a class="tgl" data-act="theme">${TGI}<span class="lm">Dark Mode</span><span class="ld">Light Mode</span></a><div class="suser">${esc(session.name)}</div><a class="lo" data-act="logout">${I.logout}<span>Logout</span></a></div>`;
  $("#app").innerHTML=`<div class="top"><button data-act="menu" aria-label="Menu">${I.menu}</button><img src="${LOGO_W}" alt="etisalat and"><b>Short Code Assistant</b><button class="tg" data-act="theme" aria-label="Dark / Light mode">${TGI}</button></div><div class="shell">${side}<div class="main"><div id="syncbar">${syncHTML()}</div>${page==="users"&&pendCount()?reqSection():""}${adminPage()}${page==="users"&&!pendCount()?reqSection():""}</div></div>`}
 const qL=t=>"\xab"+esc(t)+"\xbb",fmtL=t=>{const d=new Date(t);return isNaN(d)?"":d.toLocaleString("en-GB",{hour12:false})};
 const logTxt=e=>e.a==="addFolder"?"أضاف فولدر "+qL(e.c):e.a==="addCode"?"أضاف كود "+qL(e.k)+' <span class="ltr">('+esc(e.n)+")</span> في فولدر "+qL(e.c):e.a==="editCode"?"عدّل كود "+qL(e.on&&e.on!==e.k?e.on+" ← "+e.k:e.k)+" في "+qL(e.c)+(e.o!==e.n?' <span class="ltr">'+esc(e.o)+" → "+esc(e.n)+"</span>":""):esc(e.a);
 function adminPage(){
  if(page==="notif")return notifPage();
+ if(page==="lists")return listsPage();
  if(page==="creq")return creqPage();
  if(page==="dash"){const tc=allCodes().length,au=S.users.filter(u=>u.status==="active").length;
   const cp=CREQ.list.filter(x=>x.status==="pending"),np=REQ.list.filter(x=>x.status==="pending"),lg=(S.log||[]).slice().reverse().slice(0,8);
@@ -941,8 +976,9 @@ function updBell(){const b=$("#nbell");if(!b)return;const n=unreadN();let e=b.qu
 async function loadNotifs(){
  const r=await getDoc("users");if(!r)return;
  const L=nParse(r.n),ch=!NT.ok||JSON.stringify(L)!==JSON.stringify(NT.list);NT={list:L,ok:true};
- if(isAdm()){if(ch&&page==="notif"&&!$("#modal").innerHTML)render();return}
- if(session&&session.role==="user"){updBell();
+ const LL=lParse(r.l),lch=!LOK||JSON.stringify(LL)!==JSON.stringify(LST);LST=LL;LOK=true;
+ if(isAdm()){if((ch&&page==="notif"||lch&&page==="lists")&&!$("#modal").innerHTML)render();return}
+ if(session&&session.role==="user"){if(lch&&!$("#modal").innerHTML&&document.activeElement!==$("#uq"))render();updBell();
   const rd=nRead(),fresh=nMine().filter(n=>!rd.has(n.id)&&!nSeen.has(n.id));
   fresh.forEach(n=>nSeen.add(n.id));
   if(fresh.length&&!$("#modal").innerHTML)toast("🔔 "+(fresh.length>1?"وصلك "+fresh.length+" إشعارات جديدة":"وصلك إشعار جديد"))}}
@@ -978,12 +1014,111 @@ function nAct(a,id){
  if(a==="ndel"){confirmModal("حذف هذا الإشعار؟ هيختفي من عند الموظفين.","Delete",async()=>{
    try{const r=await getDoc("users");if(!r)throw{message:"تعذر الاتصال بالإنترنت"};await nPut(nParse(r.n).filter(x=>x.id!==id));render();toast("تم حذف الإشعار")}
    catch(e){toast(fbMsg(e),"err")}},"Delete Notification")}}
-setInterval(()=>{if(session&&!document.hidden&&(session.role==="user"||(isAdm()&&page==="notif")))loadNotifs()},30000);
+setInterval(()=>{if(session&&!document.hidden&&(session.role==="user"||(isAdm()&&(page==="notif"||page==="lists"))))loadNotifs()},30000);
 document.addEventListener("visibilitychange",()=>{if(!document.hidden&&session&&session.role==="user")loadNotifs()});
+
+/* ===== Custom lists → folders → codes (stored in Firestore doc shortcodes/users, field "lists") ===== */
+I.list=_i('<path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/>');
+I.copy=_i('<rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h8"/>');
+let uview="codes",ufold=null,uside=false,LST=[],LOK=false,lopen=null,lfold=null,popDesc="";
+const lItem=i=>({id:String(i.id),name:String(i.name||""),value:String(i.value==null?"":i.value),description:String(i.description||""),showDesc:i.showDesc===true});
+const lParse=t=>{try{const a=JSON.parse(t||"[]");return Array.isArray(a)?a.filter(x=>x&&x.id).map(l=>{
+ const fo=Array.isArray(l.folders)?l.folders:(Array.isArray(l.items)&&l.items.length?[{id:"f"+l.id,name:"عام",copy:true,items:l.items}]:[]);
+ return{id:String(l.id),name:String(l.name||""),folders:fo.filter(f=>f&&f.id).map(f=>({id:String(f.id),name:String(f.name||""),copy:f.copy===true,items:(Array.isArray(f.items)?f.items:[]).filter(i=>i&&i.id).map(lItem)}))}}):[]}catch(e){return[]}};
+const lCnt=l=>l.folders.reduce((n,f)=>n+f.items.length,0);
+async function lPut(L){const idt=await fbToken();await putDoc("users",{lists:{stringValue:JSON.stringify(L)}},idt,null,false);LST=L;LOK=true}
+async function lMut(fn){if(!LOK)return"جاري تحميل القوائم، حاول بعد لحظة.";const L=JSON.parse(JSON.stringify(LST));const e=fn(L);if(e)return e;
+ try{await lPut(L)}catch(x){console.error(x);return fbMsg(x)}return""}
+const fdItem=id=>{const c=allCodes().find(x=>x.k.id===id);if(c)return c.k;for(const l of LST)for(const f of l.folders){const i=f.items.find(x=>x.id===id);if(i)return i}return null};
+const lTile=(x,f)=>tileBtn({id:x.id,name:x.name,shortCode:x.value,description:x.description,showDesc:x.showDesc,nc:!f.copy},"",0,f.id,"litem");
+const lFolder=f=>`<button class="fo" style="${fcs(f.id)}" data-act="us_fold" data-id="${f.id}"><span class="fi">${I.folder}</span><b>${hl(f.name)}</b><em class="cnt">${f.items.length} كود</em></button>`;
+function listBody(l){const qq=sn(q);
+ if(qq){const fs=l.folders.filter(f=>sn(f.name).includes(qq)),ks=l.folders.flatMap(f=>f.items.filter(x=>sn(x.name).includes(qq)||String(x.value).includes(q.trim())).map(x=>({f,x})));
+  if(!fs.length&&!ks.length)return'<div class="empty">لا توجد نتائج مطابقة.</div>';
+  return(fs.length?`<h3 class="sh">الفولدرات</h3><div class="grid fo5">${fs.map(lFolder).join("")}</div>`:"")+(ks.length?`<h3 class="sh">الأكواد</h3><div class="grid fo5 gs">${ks.map(k=>lTile(k.x,k.f)).join("")}</div>`:"")}
+ const fo=ufold&&l.folders.find(f=>f.id===ufold);
+ if(fo)return`<button class="btn gh bk" data-act="us_fback">← Back to ${esc(l.name)}</button><div class="hd"><h2 class="ttl">${esc(fo.name)}</h2>${fo.copy?"":'<span class="badge i">للعرض فقط</span>'}</div>`+(fo.items.length?`<div class="grid fo5 gs">${fo.items.map(x=>lTile(x,fo)).join("")}</div>`:'<div class="empty">لا توجد أكواد في هذا الفولدر.</div>');
+ return`<div class="hd"><h2 class="ttl">${esc(l.name)}</h2></div>`+(l.folders.length?`<div class="grid fo5">${l.folders.map(lFolder).join("")}</div>`:'<div class="empty">لا توجد فولدرات في هذه القائمة.</div>')}
+function showView(k){closePop();const sv=String(k.shortCode),hd=String(k.description||"").trim();popDesc="";
+ $("#pop").innerHTML=`<div class="pov" data-act="popclose"><div class="pbox nocp"><div class="pnm">${esc(k.name)}</div><div class="big${sv.length>18||sv.includes("\n")?" sm":""}">${esc(sv)}</div>${hd?`<div class="pdesc"><div class="pdt">${esc(hd)}</div></div>`:""}<div class="pok" style="color:var(--mut)">للعرض فقط — النسخ غير مفعّل</div><div class="pbar"><i style="animation-duration:10000ms"></i></div></div></div>`;
+ popT=setTimeout(closePop,10000)}
+function uSide(){
+ if(uview!=="codes"&&!LST.some(x=>x.id===uview))uview="codes";
+ const on=v=>uview===v?" on":"";
+ const fol=uview==="codes"?S.categories.map(c=>`<a class="sub${ucat===c.id?" on":""}" data-act="us_cat" data-id="${c.id}">${esc(c.name)}</a>`).join(""):"";
+ return`<aside class="uside${uside?" open":""}"><a class="band${on("codes")}" data-act="us_view" data-id="codes">${I.hash}<span>قائمة الأكواد</span><em>${allCodes().length}</em></a>${fol}${LST.map(l=>`<a class="band${on(l.id)}" data-act="us_view" data-id="${l.id}">${I.list}<span>${esc(l.name)}</span><em>${lCnt(l)}</em></a>${uview===l.id?l.folders.map(f=>`<a class="sub${ufold===f.id?" on":""}" data-act="us_fold" data-id="${f.id}">${esc(f.name)}</a>`).join(""):""}`).join("")}</aside><div class="uov${uside?" open":""}" data-act="us_menu"></div>`}
+function listsPage(){
+ const l=lopen&&LST.find(x=>x.id===lopen);if(lopen&&!l)lopen=lfold=null;
+ const fo=l&&lfold&&l.folders.find(x=>x.id===lfold);if(l&&lfold&&!fo)lfold=null;
+ const mv=(u,d,i,n,id)=>`<button class="btn gh sm" data-act="${u}" data-id="${id}"${i?"":" disabled"}>▲</button><button class="btn gh sm" data-act="${d}" data-id="${id}"${i<n-1?"":" disabled"}>▼</button>`;
+ if(fo){
+  const rows=fo.items.map((x,i)=>`<tr><td>${mv("ls_iup","ls_idown",i,fo.items.length,x.id)}</td><td>${esc(x.name)}</td><td class="ncell">${esc(x.value)}</td><td class="ncell">${esc(x.description)}</td><td><button class="btn sm" data-act="ls_iedit" data-id="${x.id}">Edit</button><button class="btn rd sm" data-act="ls_idel" data-id="${x.id}">Delete</button></td></tr>`).join("");
+  return`<button class="btn gh bk" data-act="ls_back">← Back to ${esc(l.name)}</button><div class="hd"><h2>${esc(l.name)} / ${esc(fo.name)} <span class="badge ${fo.copy?"a":"i"}">${fo.copy?"النسخ مسموح":"للعرض فقط"}</span></h2><button class="btn" data-act="ls_iadd">+ Add Code</button></div><div class="tw">${rows?`<table><tr><th>Order</th><th>Name</th><th>Content</th><th>Description</th><th>Actions</th></tr>${rows}</table>`:'<div class="empty">لا توجد أكواد. اضغط + Add Code.</div>'}</div>`}
+ if(l){
+  const rows=l.folders.map((x,i)=>`<tr><td>${mv("ls_fup","ls_fdown",i,l.folders.length,x.id)}</td><td>${esc(x.name)}</td><td><span class="badge ${x.copy?"a":"i"}">${x.copy?"النسخ مسموح":"للعرض فقط"}</span></td><td>${x.items.length}</td><td><button class="btn sm" data-act="ls_fopen" data-id="${x.id}">Open</button><button class="btn gh sm" data-act="ls_fedit" data-id="${x.id}">Edit</button><button class="btn rd sm" data-act="ls_fdel" data-id="${x.id}">Delete</button></td></tr>`).join("");
+  return`<button class="btn gh bk" data-act="ls_back">← Back to Lists</button><div class="hd"><h2>${esc(l.name)}</h2><button class="btn" data-act="ls_fadd">+ Add Folder</button></div><div class="tw">${rows?`<table><tr><th>Order</th><th>Folder</th><th>Copy</th><th>Codes</th><th>Actions</th></tr>${rows}</table>`:'<div class="empty">لا توجد فولدرات. اضغط + Add Folder.</div>'}</div>`}
+ let body;
+ if(!LOK&&!LST.length)body='<div class="empty"><i class=spn></i> جاري التحميل...</div>';
+ else if(!LST.length)body='<div class="empty">لا توجد قوائم بعد. اضغط + Add List.</div>';
+ else body=`<table><tr><th>Order</th><th>List Name</th><th>Folders</th><th>Codes</th><th>Actions</th></tr>${LST.map((x,i)=>`<tr><td>${mv("ls_up","ls_down",i,LST.length,x.id)}</td><td>${esc(x.name)}</td><td>${x.folders.length}</td><td>${lCnt(x)}</td><td><button class="btn sm" data-act="ls_open" data-id="${x.id}">Open</button><button class="btn gh sm" data-act="ls_edit" data-id="${x.id}">Rename</button><button class="btn rd sm" data-act="ls_del" data-id="${x.id}">Delete</button></td></tr>`).join("")}</table>`;
+ return`<div class="hd"><h2>Lists</h2><button class="btn" data-act="ls_add">+ Add List</button></div><p style="margin-bottom:14px;color:var(--mut);line-height:1.8;font-size:.9rem">كل ليست بتظهر للموظفين في القائمة الجانبية تحت «قائمة الأكواد». جوه الليست فولدرات، وجوه الفولدر أكواد. من خانة النسخ في كل فولدر بتحدد الموظف يقدر ينسخ أكواده ولا للعرض فقط.</p><div class="tw">${body}</div>`}
+function lAct(a,id){
+ const go=p=>p.then(e=>{if(e)toast(e,"err");else render()});
+ const fl=(L,i)=>L.find(x=>x.id===i);
+ const gf=L=>{const t=fl(L,lopen);return t&&t.folders.find(x=>x.id===lfold)};
+ const swap=(arr,i,d)=>{const j=i+d;if(i<0||j<0||j>=arr.length)return;[arr[i],arr[j]]=[arr[j],arr[i]]};
+ const cp=(t,ok)=>copyText(t).then(o=>toast(o?"✓ تم نسخ الوصف":"تعذر النسخ التلقائي، حدد الوصف وانسخه يدويًا",o?"":"err"));
+ if(a==="us_view"){uview=id;ufold=null;ucat=ucode=null;q="";uside=false;render();return}
+ if(a==="us_cat"){uview="codes";ucat=id;ucode=null;q="";uside=false;render();return}
+ if(a==="us_fold"){ufold=id;q="";uside=false;render();return}
+ if(a==="us_fback"){ufold=null;render();return}
+ if(a==="us_menu"){uside=!uside;render();return}
+ if(a==="cdesc"){const k=fdItem(id),t=k?String(k.description||"").trim():"";if(t)cp(t);return}
+ if(a==="cdescp"){if(popDesc){cp(popDesc);clearTimeout(popT);popT=setTimeout(closePop,4000)}return}
+ if(a==="litem"){for(const l of LST)for(const f of l.folders){const i=f.items.find(x=>x.id===id);if(i){(f.copy?showCode:showView)({name:i.name,shortCode:i.value,description:i.description});return}}return}
+ if(!isAdm())return;
+ switch(a){
+ case"ls_back":if(lfold)lfold=null;else lopen=null;render();break;
+ case"ls_open":lopen=id;lfold=null;render();break;
+ case"ls_fopen":lfold=id;render();break;
+ case"ls_add":case"ls_edit":{const l=a==="ls_edit"?LST.find(x=>x.id===id):null;
+  formModal(l?"Rename List":"Add List",inp("اسم الليست","name",l?l.name:"","text",1),l?"Save":"Create",async d=>{
+   const n=d.name.trim();if(!n)return"اسم الليست مطلوب.";if(n.length>60)return"الاسم طويل جدًا.";
+   if(LST.some(x=>norm(x.name)===norm(n)&&(!l||x.id!==l.id)))return"الليست دي موجودة بالفعل.";
+   const e=await lMut(L=>{if(l){const t=fl(L,l.id);if(!t)return"الليست غير موجودة.";t.name=n}else L.push({id:uid(),name:n,folders:[]})});
+   if(e)return e;render();toast("✓ تم الحفظ — هتظهر للموظفين خلال لحظات")});break}
+ case"ls_del":{const l=LST.find(x=>x.id===id);if(!l)break;
+  confirmModal("حذف الليست «"+esc(l.name)+"» وكل الفولدرات والأكواد اللي فيها؟","Delete",()=>go(lMut(L=>{const i=L.findIndex(x=>x.id===id);if(i>=0)L.splice(i,1)})),"Delete List");break}
+ case"ls_up":case"ls_down":go(lMut(L=>{swap(L,L.findIndex(x=>x.id===id),a==="ls_up"?-1:1)}));break;
+ case"ls_fadd":case"ls_fedit":{const l=LST.find(x=>x.id===lopen);if(!l)break;const f=a==="ls_fedit"?l.folders.find(x=>x.id===id):null;
+  formModal(f?"Edit Folder":"Add Folder",inp("اسم الفولدر","name",f?f.name:"","text",1)+chk("السماح للموظفين بنسخ الأكواد اللي جوه الفولدر ده (لو مش معلّم: للعرض فقط)","copy",f&&f.copy),f?"Save":"Create",async d=>{
+   const n=d.name.trim();if(!n)return"اسم الفولدر مطلوب.";if(n.length>60)return"الاسم طويل جدًا.";
+   const e=await lMut(L=>{const t=fl(L,l.id);if(!t)return"الليست غير موجودة.";
+    if(t.folders.some(x=>norm(x.name)===norm(n)&&(!f||x.id!==f.id)))return"الفولدر ده موجود بالفعل في الليست.";
+    if(f){const o=t.folders.find(x=>x.id===f.id);if(!o)return"الفولدر غير موجود.";o.name=n;o.copy=!!d.copy}
+    else t.folders.push({id:uid(),name:n,copy:!!d.copy,items:[]})});
+   if(e)return e;render();toast("✓ تم الحفظ")});break}
+ case"ls_fdel":{const l=LST.find(x=>x.id===lopen),f=l&&l.folders.find(x=>x.id===id);if(!f)break;
+  confirmModal("حذف الفولدر «"+esc(f.name)+"» وكل أكواده؟","Delete",()=>go(lMut(L=>{const t=fl(L,lopen);if(!t)return"الليست غير موجودة.";t.folders=t.folders.filter(x=>x.id!==id)})),"Delete Folder");break}
+ case"ls_fup":case"ls_fdown":go(lMut(L=>{const t=fl(L,lopen);if(!t)return"الليست غير موجودة.";swap(t.folders,t.folders.findIndex(x=>x.id===id),a==="ls_fup"?-1:1)}));break;
+ case"ls_iup":case"ls_idown":go(lMut(L=>{const f=gf(L);if(!f)return"الفولدر غير موجود.";swap(f.items,f.items.findIndex(x=>x.id===id),a==="ls_iup"?-1:1)}));break;
+ case"ls_idel":confirmModal("حذف هذا الكود؟","Delete",()=>go(lMut(L=>{const f=gf(L);if(!f)return"الفولدر غير موجود.";f.items=f.items.filter(x=>x.id!==id)})),"Delete Code");break;
+ case"ls_iadd":case"ls_iedit":{const l=LST.find(x=>x.id===lopen),fo=l&&l.folders.find(x=>x.id===lfold);if(!fo)break;const it=a==="ls_iedit"?fo.items.find(x=>x.id===id):null;
+  formModal(it?"Edit Code":"Add Code",inp("الاسم","name",it?it.name:"","text",1)+txa("الكود / المحتوى *","value",it?it.value:"")+txa("Description (اختياري)","description",it?it.description:"")+chk(SDL,"showDesc",it&&it.showDesc),it?"Save":"Create",async d=>{
+   const n=d.name.trim(),v=d.value.trim(),ds=d.description.trim();
+   if(!n||!v)return"الاسم والكود مطلوبان.";
+   if(n.length>100||v.length>1000||ds.length>500)return"النص طويل جدًا.";
+   const e=await lMut(L=>{const f=gf(L);if(!f)return"الفولدر غير موجود.";
+    if(f.items.some(x=>norm(x.name)===norm(n)&&(!it||x.id!==it.id)))return"الاسم موجود بالفعل في الفولدر.";
+    if(it){const o=f.items.find(x=>x.id===it.id);if(!o)return"الكود غير موجود.";Object.assign(o,{name:n,value:v,description:ds,showDesc:!!d.showDesc})}
+    else f.items.push({id:uid(),name:n,value:v,description:ds,showDesc:!!d.showDesc})});
+   if(e)return e;render();toast("✓ تم الحفظ")});break}
+ }}
 
 /* ===== Actions ===== */
 function act(a,id){
  if(a==="nopen"||a==="nref"||a==="nsend"||a==="ndel"){nAct(a,id);return}
+ if(/^(ls_|us_)/.test(a)||a==="cdesc"||a==="cdescp"||a==="litem"){lAct(a,id);return}
  const ok=()=>{save();render()};
  switch(a){
  case"close":closeModal();break;
@@ -1004,14 +1139,14 @@ function act(a,id){
   confirmModal("حذف الطلب نهائيًا؟ ممكن بعدها نفس اليوزر يقدّم من جديد.","Delete",async()=>{
    try{await reqDel(id);REQ.list=REQ.list.filter(x=>x.id!==id);render();toast("تم حذف الطلب")}catch(e){toast(fbMsg(e),"err")}},"Delete Request");break}
  case"menu":menu=!menu;render();break;
- case"nav":page=id;menu=false;render();if(id==="users")loadReqs();if(id==="creq")loadCReqs();if(id==="notif")loadNotifs();if(id==="log")act("logref");break;
+ case"nav":page=id;menu=false;render();if(id==="users")loadReqs();if(id==="creq")loadCReqs();if(id==="notif")loadNotifs();if(id==="lists"){lopen=lfold=null;loadNotifs()}if(id==="log")act("logref");break;
  case"logref":{if(S._dirty||pushing){toast("فيه تعديلات لسه بتتحفظ، جرّب بعد لحظات","err");break}
   fetchRemote().then(r=>{if(!r||!r.cats){toast("تعذر جلب البيانات من Firebase","err");return}setRem(r);S=fromRemote(r);save(true);if(isAdm())render()});break}
  case"logclr":confirmModal("هل أنت متأكد من مسح سجل التعديلات؟","Clear",()=>{S.log=[];ok()},"Clear Log");break;
  case"catup":case"catdown":{const i=S.categories.findIndex(c=>c.id===id),j=a==="catup"?i-1:i+1;if(i<0||j<0||j>=S.categories.length)break;[S.categories[i],S.categories[j]]=[S.categories[j],S.categories[i]];ok();break}
  case"urefresh":{if(!session||session.role!=="user"||rfBusy)break;
   if(S._dirty||pushing){toast("فيه تعديلات لسه بتتحفظ، جرّب بعد لحظات","err");break}
-  rfBusy=true;const sp=v=>{const e=$("#rfb");if(e)e.classList.toggle("spin",v)};sp(true);
+  rfBusy=true;loadNotifs();const sp=v=>{const e=$("#rfb");if(e)e.classList.toggle("spin",v)};sp(true);
   fetchRemote().then(async r=>{
    if(!r||!r.cats){sp(false);toast("تعذر الاتصال، حاول مرة أخرى","err");return}
    const ch=r.c.t!==rem.c.t||!!(r.u&&(r.u.t!==rem.u.t||r.u.e!==rem.u.e));
