@@ -574,6 +574,8 @@ html:not([data-theme=dark]) .uhead .btn.gh:hover{background:#ffffff26}
 .hero .ccalc .cin{background:#fff;color:#222;border:0}
 .hero .ccalc .cin:focus{outline:2px solid #ffffff99}
 .hero .ccalc .ceq{color:#fff}
+.ccalc .cnote{margin:12px 0 0;font-size:.85rem;opacity:.85}
+.ccalc .cin:disabled{opacity:.55;cursor:not-allowed}
 @media(max-width:520px){.hero .hmain h2{font-size:1.7rem}.hact button{flex:1 1 44%;justify-content:center}}
 </style>
 <body>
@@ -1033,13 +1035,13 @@ function cParse(src){
  function po(){let a=pr();while(isO("%")){nx();const b=a;a=x=>b(x)/100}return a}
  function pr(){const k=nx();if(!k)throw new Error("المعادلة ناقصة.");
   if(k.t==="n"){const v=k.v;return()=>v}
-  if(k.t==="i"){if(k.v==="x")return x=>x;const f=FN[k.v];if(!f)throw new Error("كلمة غير معروفة: "+k.v+" (استخدم x للمبلغ المدفوع)");
+  if(k.t==="i"){if(k.v==="x")return x=>x;const f=FN[k.v];if(!f)throw new Error("كلمة غير معروفة: "+k.v+" (استخدم x للرصيد الصافي)");
    if(!isO("("))throw new Error("ناقص قوس بعد "+k.v);nx();const args=[ex()];while(isO(",")){nx();args.push(ex())}if(!isO(")"))throw new Error("ناقص قوس إغلاق.");nx();return x=>f(...args.map(g=>g(x)))}
   if(k.t==="o"&&k.v==="("){const a=ex();if(!isO(")"))throw new Error("ناقص قوس إغلاق.");nx();return a}
   throw new Error("المعادلة غير صحيحة قرب: "+k.v)}
  const fn=ex();if(p<tk.length)throw new Error("المعادلة غير صحيحة قرب: "+tk[p].v);
- let prev=-Infinity;for(const v of [0,1,5,10,20,50,100,200,500,1000,5000]){const r=fn(v);if(!isFinite(r))throw new Error("المعادلة مش بتدّي رقم صحيح لما المبلغ = "+v+".");if(r<prev-1e-9)throw new Error("الرصيد الصافي لازم يزيد كل ما المبلغ المدفوع يزيد.");prev=r}
- if(!s.toLowerCase().includes("x"))throw new Error("لازم تستخدم x (المبلغ المدفوع) في المعادلة.");
+ let prev=-Infinity;for(const v of [0,1,5,10,20,50,100,200,500,1000,5000]){const r=fn(v);if(!isFinite(r))throw new Error("المعادلة مش بتدّي رقم صحيح لما الرصيد الصافي = "+v+".");if(r<prev-1e-9)throw new Error("المبلغ المدفوع لازم يزيد كل ما الرصيد الصافي يزيد.");prev=r}
+ if(!s.toLowerCase().includes("x"))throw new Error("لازم تستخدم x (الرصيد الصافي) في المعادلة.");
  return fn}
 const cNum=s=>{s=cNorm(s).replace(/\s/g,"");if(!/^(\d+\.?\d*|\.\d+)$/.test(s))return null;const v=parseFloat(s);return isFinite(v)?v:null};
 const cFmt=n=>String(Math.round(n*100)/100);
@@ -1047,20 +1049,20 @@ function cInv(fn,y){
  if(y<=fn(0))return 0;let hi=1;while(fn(hi)<y&&hi<1e9)hi*=2;if(fn(hi)<y)return null;let lo=0;
  for(let i=0;i<100;i++){const mid=(lo+hi)/2;if(fn(mid)<y)lo=mid;else hi=mid}
  let r=Math.round(hi*100)/100;if(fn(r)<y-1e-9)r=Math.round((r+0.01)*100)/100;return r}
-const calcHTML=()=>CALC.fn?`<div class="card ccalc"><h3>${I.calc} حاسبة الشحن</h3><div class="crow"><label>المبلغ المدفوع (جنيه)<input class="cin" id="cpaid" inputmode="decimal" autocomplete="off" placeholder="0" value="${esc(calcV.p)}"></label><span class="ceq">⇄</span><label>الرصيد الصافي<input class="cin" id="cnet" inputmode="decimal" autocomplete="off" placeholder="0" value="${esc(calcV.n)}"></label></div></div>`:"";
+const calcHTML=()=>{const on=!!CALC.fn,d=on?"":" disabled";return`<div class="card ccalc"><h3>${I.calc} حاسبة الشحن</h3><div class="crow"><label>الرصيد الصافي<input class="cin" id="cnet" inputmode="decimal" autocomplete="off" placeholder="0" value="${esc(calcV.n)}"${d}></label><span class="ceq">⇄</span><label>المبلغ المدفوع (جنيه)<input class="cin" id="cpaid" inputmode="decimal" autocomplete="off" placeholder="0" value="${esc(calcV.p)}"${d}></label></div>${on?"":'<p class="cnote">الحاسبة مش شغالة دلوقتي — المعادلة لسه ما اتضبطتش من الأدمن.</p>'}</div>`};
 document.addEventListener("input",e=>{const id=e.target.id;
  if(id==="cfx"){const o=$("#cprev");if(!o)return;const v=e.target.value.trim();if(!v){o.textContent="";return}
-  try{const f=cParse(v);o.style.color="var(--mut)";o.textContent="تجربة: لو دفع 100 جنيه ← الرصيد الصافي "+cFmt(f(100))+" | ولو عايز رصيد صافي 100 ← يدفع "+(cInv(f,100)==null?"—":cFmt(cInv(f,100)))+" جنيه"}
+  try{const f=cParse(v);o.style.color="var(--mut)";o.textContent="تجربة: لو عايز رصيد صافي 50 ← يدفع "+cFmt(f(50))+" جنيه | ولو دفع 100 جنيه ← الرصيد الصافي "+(cInv(f,100)==null?"—":cFmt(cInv(f,100)))}
   catch(x){o.style.color="#c8332b";o.textContent=x.message}return}
  if(id!=="cpaid"&&id!=="cnet")return;const fn=CALC.fn;if(!fn)return;
  const paid=id==="cpaid",o=$(paid?"#cnet":"#cpaid"),v=cNum(e.target.value);
  if(paid)calcV.p=e.target.value;else calcV.n=e.target.value;
- let out="";if(v!==null){const r=paid?fn(v):cInv(fn,v);if(r!=null&&isFinite(r))out=cFmt(r)}
+ let out="";if(v!==null){const r=paid?cInv(fn,v):fn(v);if(r!=null&&isFinite(r))out=cFmt(r)}
  if(o)o.value=out;if(paid)calcV.n=out;else calcV.p=out});
 
 function calcAdminPage(){
  if(CALC.f)return'<div class="hd"><h2>Charge Calculator</h2></div><div class="empty">تم ضبط المعادلة بالفعل.</div>';
- return`<div class="hd"><h2>Charge Calculator</h2></div><div class="card" style="max-width:760px"><h3>معادلة حاسبة الشحن</h3><p style="margin-bottom:12px;color:var(--mut);line-height:1.9;font-size:.9rem">اكتب المعادلة اللي بتحسب <b>الرصيد الصافي</b> من <b>المبلغ المدفوع</b>. استخدم <b class="ltr">x</b> للمبلغ المدفوع بالجنيه. أمثلة: <span class="ltr">x * 0.855</span> — <span class="ltr">x - x * 14%</span> — <span class="ltr">(x - 1) * 0.9</span>. الحاسبة بتشتغل في الاتجاهين تلقائيًا عند الموظفين. بعد الحفظ الصفحة دي هتختفي من عندك.</p><div class="fld"><label>المعادلة *</label><input id="cfx" class="ltr" placeholder="x * 0.855" autocomplete="off"></div><div id="cprev" style="margin:10px 0 4px;font-size:.88rem;line-height:1.8;color:var(--mut)"></div><div class="row" style="justify-content:flex-start;margin-top:12px"><button class="btn" data-act="calcsave">Save Formula</button></div></div>`}
+ return`<div class="hd"><h2>Charge Calculator</h2></div><div class="card" style="max-width:760px"><h3>معادلة حاسبة الشحن</h3><p style="margin-bottom:12px;color:var(--mut);line-height:1.9;font-size:.9rem">اكتب المعادلة اللي بتحسب <b>المبلغ اللي هيدفعه الموظف</b> من <b>الرصيد الصافي</b>. استخدم <b class="ltr">x</b> للرصيد الصافي. مثال: <span class="ltr">x * 1.44</span> (لو رصيد صافي 50 يدفع 72). الحاسبة بتشتغل في الاتجاهين تلقائيًا عند الموظفين. بعد الحفظ الصفحة دي هتختفي من عندك.</p><div class="fld"><label>المعادلة *</label><input id="cfx" class="ltr" placeholder="x * 1.44" autocomplete="off"></div><div id="cprev" style="margin:10px 0 4px;font-size:.88rem;line-height:1.8;color:var(--mut)"></div><div class="row" style="justify-content:flex-start;margin-top:12px"><button class="btn" data-act="calcsave">Save Formula</button></div></div>`}
 async function calcSave(){
  const el=$("#cfx"),v=el?el.value.trim():"";let fn;
  try{fn=cParse(v)}catch(x){toast(x.message,"err");return}
