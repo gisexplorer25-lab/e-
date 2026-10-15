@@ -563,6 +563,24 @@ html:not([data-theme=dark]) .uhead .btn.gh:hover{background:#ffffff26}
 .ccalc .cin:disabled{opacity:.55;cursor:not-allowed}
 .ccalc .ceq{color:#fff;font-size:1.1rem;padding-bottom:6px}
 @media(max-width:520px){.hero .hmain h2{font-size:1.7rem}.hact{width:100%;max-width:none}.hact button{flex:1 1 44%;justify-content:center}}
+
+/* ===== Softer dark mode: slate palette, visible borders, calmer hero red ===== */
+html[data-theme=dark]{--card:#262b36;--tx:#eceef4;--mut:#a9afbe;--bd:#465066;--line:#ffffff26}
+html[data-theme=dark] body,html[data-theme=dark] .boot{background:#1a1d25;color:#eceef4}
+html[data-theme=dark] :is(.st,.tw,.card,.fo,.cc.code,.gs .cc,.sb,.md,.pbox){background:#262b36;box-shadow:0 0 0 1px #4a5266}
+html[data-theme=dark] .sb{border-color:#4a5266}
+html[data-theme=dark] .uhead{background:#12151c}
+html[data-theme=dark] .hero{background:linear-gradient(135deg,#9c3a35,#66262a);box-shadow:0 10px 30px #00000055}
+html[data-theme=dark] .fld input,html[data-theme=dark] .fld select,html[data-theme=dark] .fld textarea,html[data-theme=dark] .lw input{background:#1f232c;border-color:#465066;color:#f0f2f7}
+html[data-theme=dark] .fld input:focus,html[data-theme=dark] .fld select:focus,html[data-theme=dark] .fld textarea:focus{background:#1f232c;border-color:#c8332b}
+html[data-theme=dark] th,html[data-theme=dark] tr:hover td{background:#2e3441}
+html[data-theme=dark] th,html[data-theme=dark] td{border-bottom-color:#ffffff1f}
+html[data-theme=dark] .fo small,html[data-theme=dark] .btn.gh,html[data-theme=dark] .btn.gr{background:#323847}
+html[data-theme=dark] .btn.gh:hover{background:#3d4558}
+html[data-theme=dark] .sb .x,html[data-theme=dark] .pbar{background:#3a4152}
+html[data-theme=dark] .te.sg button{background:#343b4b;box-shadow:0 0 0 1px #ffffff2e}
+html[data-theme=dark] .uside .band{box-shadow:0 0 0 1px #4a5266}
+html[data-theme=dark] .uside .band.on{box-shadow:none}
 </style>
 <body>
 <div id="app"><div class="boot"><i class="spn big"></i><b>Short Code Assistant</b></div></div><input type="file" id="impx" accept=".csv,.xlsx,.xls,text/csv" hidden><div id="modal"></div><div id="pop"></div><div id="toast"></div>
