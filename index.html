@@ -549,6 +549,8 @@ html:not([data-theme=dark]) .uhead .btn.gh:hover{background:#ffffff26}
 .hact button{display:inline-flex;align-items:center;gap:8px;border:0;border-radius:12px;background:#ffffff22;color:#fff;font-family:inherit;font-weight:600;font-size:.9rem;padding:10px 16px;cursor:pointer;transition:background .15s}
 .hact button:hover{background:#ffffff3a}
 .hact svg{width:18px;height:18px}
+.hact .rf.spin svg{animation:rfs .8s linear infinite}
+.hact .rf.new{background:#fff;color:#c8332b}
 @media(max-width:520px){.hero .hmain h2{font-size:1.7rem}.hact button{flex:1 1 44%;justify-content:center}}
 </style>
 <body>
@@ -581,7 +583,7 @@ const valid=d=>!!(d&&Array.isArray(d.users)&&Array.isArray(d.categories));
 const ac=o=>o.hash?{salt:String(o.salt||""),hash:String(o.hash)}:{password:String(o.password==null?"":o.password)};
 function clean(d){
  const cat=x=>({id:String(x.id||uid()),name:String(x.name||"").trim(),description:String(x.description||""),created:String(x.created||today()),
-  codes:(Array.isArray(x.codes)?x.codes:[]).map(k=>({id:String(k.id||uid()),name:String(k.name||"").trim(),shortCode:String(k.shortCode==null?"":k.shortCode),description:String(k.description||""),showDesc:k.showDesc===true}))});
+  codes:(Array.isArray(x.codes)?x.codes:[]).map(k=>({id:String(k.id||uid()),name:String(k.name||"").trim(),shortCode:String(k.shortCode==null?"":k.shortCode),description:String(k.description||""),showDesc:k.showDesc===true,copyDesc:k.copyDesc===true}))});
  const usr=u=>Object.assign({id:String(u.id||uid()),name:String(u.name||""),username:String(u.username||""),status:u.status==="active"?"active":"inactive"},
   u.edit?{edit:true}:{},u.authUid?{authEmail:String(u.authEmail||""),authUid:String(u.authUid)}:{},ac(u));
  return Object.assign({users:d.users.map(usr),categories:d.categories.map(cat),settings:{},log:(Array.isArray(d.log)?d.log:[]).slice(-150).map(e=>({id:String(e.id||uid()),t:String(e.t||""),by:String(e.by||""),a:String(e.a||""),c:String(e.c||""),k:String(e.k||""),o:String(e.o==null?"":e.o),n:String(e.n==null?"":e.n),on:String(e.on||"")}))},d._dirty?{_dirty:true}:{})}
@@ -729,8 +731,8 @@ function importJSON(file){
 let popT=null;
 function closePop(){clearTimeout(popT);const p=$("#pop");if(p)p.innerHTML=""}
 function showCode(k){closePop();
- const hd=String(k.description||"").trim(),sv=String(k.shortCode),ms=hd?10000:3000;popDesc=hd;
- $("#pop").innerHTML=`<div class="pov" data-act="popclose"><div class="pbox"><div class="pnm">${esc(k.name)}</div><div class="big${sv.length>18||sv.includes("\n")?" sm":""}">${esc(sv)}</div>${hd?`<div class="pdesc"><div class="pdt">${esc(hd)}</div><button class="btn sm" data-act="cdescp">${I.copy} نسخ الوصف</button></div>`:""}<div class="pok">✓ تم نسخ الكود</div><div class="pbar"><i style="animation-duration:${ms}ms"></i></div></div></div>`;
+ const hd=String(k.description||"").trim(),sv=String(k.shortCode),cd=hd&&k.copyDesc===true,ms=hd?10000:3000;popDesc=cd?hd:"";
+ $("#pop").innerHTML=`<div class="pov" data-act="popclose"><div class="pbox"><div class="pnm">${esc(k.name)}</div><div class="big${sv.length>18||sv.includes("\n")?" sm":""}">${esc(sv)}</div>${hd?`<div class="pdesc"><div class="pdt">${esc(hd)}</div>${cd?`<button class="btn sm" data-act="cdescp">${I.copy} نسخ الوصف</button>`:""}</div>`:""}<div class="pok">✓ تم نسخ الكود</div><div class="pbar"><i style="animation-duration:${ms}ms"></i></div></div></div>`;
  popT=setTimeout(closePop,ms);doCopy(k.shortCode)}
 const allCodes=()=>S.categories.flatMap(c=>c.codes.map(k=>({cat:c,k})));
 const findCat=id=>S.categories.find(c=>c.id===id);
@@ -747,6 +749,7 @@ function confirmModal(msg,btn,fn,title){
 const inp=(l,n,v,t,req)=>`<div class="fld"><label>${l}${req?" *":""}</label><input name="${n}" type="${t||"text"}" value="${esc(v)}"></div>`;
 const chk=(l,n,v)=>`<label class="ck"><input type="checkbox" name="${n}"${v?" checked":""}><span>${l}</span></label>`;
 const SDL="إظهار الوصف للموظفين تحت اسم الكود";
+const CDL="السماح للموظفين بنسخ الوصف (تظهر علامة «نسخ الوصف» على المربع)";
 const txa=(l,n,v)=>`<div class="fld"><label>${l}</label><textarea name="${n}" rows="2">${esc(v)}</textarea></div>`;
 
 /* ===== Rendering ===== */
@@ -930,17 +933,24 @@ function hl(t){t=String(t==null?"":t);const qq=sn(q);if(!qq)return esc(t);
  let o="",last=0,from=0,p;while((p=n.indexOf(qq,from))>=0){const a=m[p],b=m[p+qq.length-1]+1;if(a>=last){o+=esc(t.slice(last,a))+"<mark>"+esc(t.slice(a,b))+"</mark>";last=b}from=p+qq.length}
  return o+esc(t.slice(last))}
 const folderBtn=c=>`<button class="fo" style="${fcs(c.id)}" data-act="ucat" data-id="${c.id}"><span class="fi">${I.folder}</span><b>${hl(c.name)}</b><em class="cnt">${c.codes.length} كود</em></button>`;
-const tileBtn=(k,lab,ed,cid,ac)=>{const hd=!!String(k.description||"").trim()&&!k.nc;return`<div class="tw2${hd?" hasd":""}" style="${fcs(cid||k.id)}"><button class="cc code" data-act="${ac||"ucode"}" data-id="${k.id}"><b>${hl(k.name)}</b>${k.showDesc&&String(k.description||"").trim()?`<small class="cd">${esc(k.description.trim())}</small>`:""}${lab?`<small>${esc(lab)}</small>`:""}</button>${ed===2?`<span class="te sg"><button data-act="sugedit" data-id="${k.id}" title="اقتراح تعديل">✎</button></span>`:ed?`<span class="te"><button data-act="ecode" data-id="${k.id}" title="تعديل">✎</button></span>`:""}${hd?`<span class="td"><button data-act="cdesc" data-id="${k.id}" title="نسخ الوصف">${I.copy} نسخ الوصف</button></span>`:""}</div>`};
+const tileBtn=(k,lab,ed,cid,ac)=>{const hd=!!String(k.description||"").trim()&&!k.nc&&k.copyDesc===true;return`<div class="tw2${hd?" hasd":""}" style="${fcs(cid||k.id)}"><button class="cc code" data-act="${ac||"ucode"}" data-id="${k.id}"><b>${hl(k.name)}</b>${k.showDesc&&String(k.description||"").trim()?`<small class="cd">${esc(k.description.trim())}</small>`:""}${lab?`<small>${esc(lab)}</small>`:""}</button>${ed===2?`<span class="te sg"><button data-act="sugedit" data-id="${k.id}" title="اقتراح تعديل">✎</button></span>`:ed?`<span class="te"><button data-act="ecode" data-id="${k.id}" title="تعديل">✎</button></span>`:""}${hd?`<span class="td"><button data-act="cdesc" data-id="${k.id}" title="نسخ الوصف">${I.copy} نسخ الوصف</button></span>`:""}</div>`};
 const sugOK=()=>!!(session&&session.role==="user"&&!session.canEdit&&!session.wantEdit);
 function userBody(){
  const qq=sn(q);
  if(uview!=="codes"){const l=LST.find(x=>x.id===uview);if(l)return listBody(l);uview="codes"}
  if(qq){
-  const fs=S.categories.filter(c=>sn(c.name).includes(qq));
-  const ks=allCodes().filter(x=>sn(x.k.name).includes(qq)||String(x.k.shortCode).includes(q.trim()));
-  if(!fs.length&&!ks.length)return'<div class="empty">لا توجد نتائج مطابقة.</div>';
-  return(fs.length?`<h3 class="sh">الفولدرات</h3><div class="grid fo5">${fs.map(folderBtn).join("")}</div>`:"")+
-   (ks.length?`<h3 class="sh">الأكواد</h3><div class="grid fo5 gs">${ks.map(x=>tileBtn(x.k,x.cat.name,(session&&session.canEdit&&session.edit)?1:0,x.cat.id)).join("")}</div>`:"")}
+  const ce=!!(session&&session.canEdit);
+  const fs=ce?S.categories.filter(c=>sn(c.name).includes(qq)):[];
+  const ks=ce?allCodes().filter(x=>sn(x.k.name).includes(qq)||String(x.k.shortCode).includes(q.trim())):[];
+  const lf=[],lk=[];
+  LST.forEach(l=>lFolders(l).forEach(f=>{
+   if(ce&&f.ref)return;
+   if(sn(f.name).includes(qq))lf.push({l,f});
+   f.items.forEach(x=>{if(sn(x.name).includes(qq)||String(x.value).includes(q.trim()))lk.push({l,f,x})})}));
+  if(!fs.length&&!ks.length&&!lf.length&&!lk.length)return'<div class="empty">لا توجد نتائج مطابقة.</div>';
+  const lfo=o=>lFolder(o.f).replace('<em class="cnt">','<em class="cnt">'+esc(o.l.name)+' · ');
+  return((fs.length||lf.length)?`<h3 class="sh">الفولدرات</h3><div class="grid fo5">${fs.map(folderBtn).join("")}${lf.map(lfo).join("")}</div>`:"")+
+   ((ks.length||lk.length)?`<h3 class="sh">الأكواد</h3><div class="grid fo5 gs">${ks.map(x=>tileBtn(x.k,x.cat.name,(session&&session.canEdit&&session.edit)?1:0,x.cat.id)).join("")}${lk.map(o=>lTile(o.x,o.f,o.l.name+" · "+o.f.name)).join("")}</div>`:"")}
  const c=ucat&&findCat(ucat);
  if(!c){ucat=ucode=null;
   const em=!!(session&&session.canEdit&&session.edit),ab=em?'<div class="hd"><span></span><button class="btn" data-act="eaddcat">+ Add Folder</button></div>':"";
@@ -949,7 +959,7 @@ function userBody(){
  return`<button class="btn gh bk" data-act="uback1">← Back to Categories</button><div class="hd"><h2 class="ttl">${esc(c.name)}</h2>${ed?'<button class="btn" data-act="dadd">+ Add Code</button>':""}</div>`+
   (c.codes.length?`<div class="grid fo5 gs">${c.codes.map(k=>tileBtn(k,"",ed?1:0,c.id)).join("")}</div>`:'<div class="empty">لا توجد أكواد في هذه الفئة.</div>')}
 function userView(){
- $("#app").innerHTML=`<div class="uhead"><div class="ubrand"><img src="${LOGO_W}" alt="etisalat and"><span class="vr"></span><div><h1>Short Code Assistant</h1><small>Welcome, ${esc(session.name)}${session.canEdit?'<button class="pen'+(session.edit?" on":"")+'" data-act="etoggle" title="وضع التعديل">✎</button>'+(session.edit?" وضع التعديل مفعّل":""):""}</small></div></div><div class="uact">${(session&&session.role==="user"&&session.wantEdit&&!session.canEdit)?`<button class="tg" data-act="logout" title="صلاحية التعديل لم تُفعّل — سجّل خروج وادخل تاني" style="color:#c8332b;font-weight:700">⚠</button>`:""}${sugOK()?`<button class="tg sug" data-act="sugadd" title="اقتراح كود جديد" aria-label="اقتراح كود جديد">${I.plus}</button>`:""}<button class="tg umb" data-act="us_menu" title="القائمة" aria-label="القائمة">${I.menu}</button><button class="tg nbell" id="nbell" data-act="nopen" title="الإشعارات" aria-label="الإشعارات">${I.bell}${unreadN()?`<em class="nbd">${unreadN()>9?"9+":unreadN()}</em>`:""}</button><button class="tg rf${updAvail?" new":""}" id="rfb" data-act="urefresh" title="تحديث الأكواد" aria-label="تحديث الأكواد">${RFI}</button><button class="tg" data-act="theme" title="Dark / Light" aria-label="Dark / Light mode">${TGI}</button><button class="btn gh sm lob" data-act="logout">${I.logout}<span>Logout</span></button></div></div><div class="ushell">${uSide()}<div class="uwrap">${(session.wantEdit&&!session.canEdit)?`<div class="bn" style="margin-bottom:12px"><span>⚠ صلاحية التعديل غير مفعّلة على حسابك: ${esc(session.editErr||"تعذر تسجيل الدخول لصلاحية التعديل")}</span></div>`:""}<div id="syncbar">${syncHTML()}</div>${(uview!=="codes"||session.canEdit)?`<div class="sb"><span class="sbi">${I.search}</span><input id="uq" placeholder="ابحث في الفولدرات أو أسماء الأكواد..." value="${esc(q)}" autocomplete="off"><button class="x" id="qx" data-act="qclear"${q?"":" hidden"}>✕</button></div>`:""}<div id="ubody" class="in">${userBody()}</div></div></div>`}
+ $("#app").innerHTML=`<div class="uhead"><div class="ubrand"><img src="${LOGO_W}" alt="etisalat and"><span class="vr"></span><div><h1>Short Code Assistant</h1><small>Welcome, ${esc(session.name)}${session.canEdit?'<button class="pen'+(session.edit?" on":"")+'" data-act="etoggle" title="وضع التعديل">✎</button>'+(session.edit?" وضع التعديل مفعّل":""):""}</small></div></div><div class="uact"><button class="tg umb" data-act="us_menu" title="القائمة" aria-label="القائمة">${I.menu}</button></div></div><div class="ushell">${uSide()}<div class="uwrap">${(session.wantEdit&&!session.canEdit)?`<div class="bn" style="margin-bottom:12px"><span>⚠ صلاحية التعديل غير مفعّلة على حسابك: ${esc(session.editErr||"تعذر تسجيل الدخول لصلاحية التعديل")}</span></div>`:""}<div id="syncbar">${syncHTML()}</div>${(uview==="codes")?`<div class="sb"><span class="sbi">${I.search}</span><input id="uq" placeholder="ابحث في الفولدرات أو أسماء الأكواد..." value="${esc(q)}" autocomplete="off"><button class="x" id="qx" data-act="qclear"${q?"":" hidden"}>✕</button></div>`:""}<div id="ubody" class="in">${userBody()}</div></div></div>`}
 
 /* ----- Admin ----- */
 function adminView(){
@@ -1040,11 +1050,11 @@ document.addEventListener("visibilitychange",()=>{if(!document.hidden&&session&&
 I.list=_i('<path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/>');
 I.copy=_i('<rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h8"/>');
 let uview="codes",ufold=null,uside=false,LST=[],LOK=false,lopen=null,lfold=null,popDesc="";
-const lItem=i=>({id:String(i.id),name:String(i.name||""),value:String(i.value==null?"":i.value),description:String(i.description||""),showDesc:i.showDesc===true});
+const lItem=i=>({id:String(i.id),name:String(i.name||""),value:String(i.value==null?"":i.value),description:String(i.description||""),showDesc:i.showDesc===true,copyDesc:i.copyDesc===true});
 const lParse=t=>{try{const a=JSON.parse(t||"[]");return Array.isArray(a)?a.filter(x=>x&&x.id).map(l=>{
  const fo=Array.isArray(l.folders)?l.folders:(Array.isArray(l.items)&&l.items.length?[{id:"f"+l.id,name:"عام",copy:true,items:l.items}]:[]);
  return{id:String(l.id),name:String(l.name||""),folders:fo.filter(f=>f&&f.id).map(f=>({id:String(f.id),name:String(f.name||""),ref:String(f.ref||""),copy:f.copy===true,items:(Array.isArray(f.items)?f.items:[]).filter(i=>i&&i.id).map(lItem)}))}}):[]}catch(e){return[]}};
-const lFolders=l=>l.folders.map(f=>{if(!f.ref)return f;const c=findCat(f.ref);return c?{id:f.id,ref:f.ref,name:c.name,copy:f.copy,items:c.codes.map(k=>({id:k.id,name:k.name,value:k.shortCode,description:k.description||"",showDesc:k.showDesc===true}))}:null}).filter(Boolean);
+const lFolders=l=>l.folders.map(f=>{if(!f.ref)return f;const c=findCat(f.ref);return c?{id:f.id,ref:f.ref,name:c.name,copy:f.copy,items:c.codes.map(k=>({id:k.id,name:k.name,value:k.shortCode,description:k.description||"",showDesc:k.showDesc===true,copyDesc:k.copyDesc===true}))}:null}).filter(Boolean);
 const lCnt=l=>lFolders(l).reduce((n,f)=>n+f.items.length,0);
 const catPick=ex=>{const cs=S.categories.filter(c=>!ex.has(c.id));return cs.length?`<div class="fld"><label>إضافة فولدرات من الموجودين (اختياري)</label><div style="max-height:200px;overflow:auto;border:1px solid var(--bd);border-radius:12px;padding:6px 10px">${cs.map(c=>chk(esc(c.name),"c_"+c.id,false)).join("")}</div></div>`:'<p style="color:var(--mut)">كل الفولدرات الموجودة مضافة بالفعل.</p>'};
 const catPicked=d=>S.categories.filter(c=>d["c_"+c.id]).map(c=>c.id);
@@ -1054,7 +1064,7 @@ async function lPut(L){const idt=await fbToken();await putDoc("users",{lists:{st
 async function lMut(fn){if(!LOK)return"جاري تحميل القوائم، حاول بعد لحظة.";const L=JSON.parse(JSON.stringify(LST));const e=fn(L);if(e)return e;
  try{await lPut(L)}catch(x){console.error(x);return fbMsg(x)}return""}
 const fdItem=id=>{const c=allCodes().find(x=>x.k.id===id);if(c)return c.k;for(const l of LST)for(const f of lFolders(l)){const i=f.items.find(x=>x.id===id);if(i)return i}return null};
-const lTile=(x,f)=>tileBtn({id:x.id,name:x.name,shortCode:x.value,description:x.description,showDesc:x.showDesc,nc:!f.copy},"",0,f.id,"litem");
+const lTile=(x,f,lab)=>tileBtn({id:x.id,name:x.name,shortCode:x.value,description:x.description,showDesc:x.showDesc,copyDesc:x.copyDesc,nc:!f.copy},lab||"",0,f.id,"litem");
 const lFolder=f=>`<button class="fo" style="${fcs(f.id)}" data-act="us_fold" data-id="${f.id}"><span class="fi">${I.folder}</span><b>${hl(f.name)}</b><em class="cnt">${f.items.length} كود</em></button>`;
 function listBody(l){const qq=sn(q),LF=lFolders(l);
  if(qq){const fs=LF.filter(f=>sn(f.name).includes(qq)),ks=LF.flatMap(f=>f.items.filter(x=>sn(x.name).includes(qq)||String(x.value).includes(q.trim())).map(x=>({f,x})));
@@ -1067,7 +1077,7 @@ function showView(k){closePop();const sv=String(k.shortCode),hd=String(k.descrip
  $("#pop").innerHTML=`<div class="pov" data-act="popclose"><div class="pbox nocp"><div class="pnm">${esc(k.name)}</div><div class="big${sv.length>18||sv.includes("\n")?" sm":""}">${esc(sv)}</div>${hd?`<div class="pdesc"><div class="pdt">${esc(hd)}</div></div>`:""}<div class="pok" style="color:var(--mut)">للعرض فقط — النسخ غير مفعّل</div><div class="pbar"><i style="animation-duration:10000ms"></i></div></div></div>`;
  popT=setTimeout(closePop,10000)}
 function heroHTML(){const un=unreadN();
- return`<div class="hero"><div class="hmain"><small>مرحبًا 👋</small><h2>${esc(session.name)}</h2></div><div class="hst"><div><b>${S.categories.length}</b><span>فولدر</span></div><div><b>${allCodes().length}</b><span>كود</span></div><button data-act="nopen"><b data-un>${un}</b><span>إشعار جديد</span></button></div><div class="hact"><button data-act="nopen">${I.bell}<span>الإشعارات</span></button>${sugOK()?`<button data-act="sugadd">${I.plus}<span>إرسال كود للأدمن</span></button>`:""}<button data-act="urefresh">${RFI}<span>تحديث</span></button><button data-act="theme">${TGI}<span>الوضع الداكن</span></button><button data-act="logout">${I.logout}<span>تسجيل خروج</span></button></div></div>`}
+ return`<div class="hero"><div class="hmain"><small>مرحبًا 👋</small><h2>${esc(session.name)}</h2></div><div class="hst"><div><b>${S.categories.length}</b><span>فولدر</span></div><div><b>${allCodes().length}</b><span>كود</span></div><button data-act="nopen"><b data-un>${un}</b><span>إشعار جديد</span></button></div><div class="hact"><button data-act="nopen">${I.bell}<span>الإشعارات</span></button>${sugOK()?`<button data-act="sugadd">${I.plus}<span>إرسال كود للأدمن</span></button>`:""}<button class="rf${updAvail?" new":""}" id="rfb" data-act="urefresh">${RFI}<span>تحديث</span></button><button data-act="theme">${TGI}<span>الوضع الداكن</span></button><button data-act="logout">${I.logout}<span>تسجيل خروج</span></button></div></div>`}
 function uSide(){
  if(uview!=="codes"&&!LST.some(x=>x.id===uview))uview="codes";
  return`<aside class="uside${uside?" open":""}"><a class="band${uview==="codes"?" on":""}" data-act="us_home">${I.dash}<span>الرئيسية</span></a>${LST.map(l=>`<a class="band${uview===l.id?" on":""}" data-act="us_view" data-id="${l.id}">${I.list}<span>${esc(l.name)}</span><em>${lCnt(l)}</em></a>`).join("")}</aside><div class="uov${uside?" open":""}" data-act="us_menu"></div>`}
@@ -1094,13 +1104,13 @@ function lAct(a,id){
  const cp=(t,ok)=>copyText(t).then(o=>toast(o?"✓ تم نسخ الوصف":"تعذر النسخ التلقائي، حدد الوصف وانسخه يدويًا",o?"":"err"));
  if(a==="us_view"){uview=id;ufold=null;ucat=ucode=null;q="";uside=false;render();return}
  if(a==="us_cat"){uview="codes";ucat=id;ucode=null;q="";uside=false;render();return}
- if(a==="us_fold"){ufold=id;q="";uside=false;render();return}
+ if(a==="us_fold"){if(uview==="codes"){const ll=LST.find(x=>lFolders(x).some(f=>f.id===id));if(ll)uview=ll.id}ufold=id;q="";uside=false;render();return}
  if(a==="us_fback"){ufold=null;render();return}
  if(a==="us_home"){uview="codes";ufold=null;ucat=ucode=null;q="";uside=false;render();return}
  if(a==="us_menu"){uside=!uside;render();return}
  if(a==="cdesc"){const k=fdItem(id),t=k?String(k.description||"").trim():"";if(t)cp(t);return}
  if(a==="cdescp"){if(popDesc){cp(popDesc);clearTimeout(popT);popT=setTimeout(closePop,4000)}return}
- if(a==="litem"){for(const l of LST)for(const f of lFolders(l)){const i=f.items.find(x=>x.id===id);if(i){(f.copy?showCode:showView)({name:i.name,shortCode:i.value,description:i.description});return}}return}
+ if(a==="litem"){for(const l of LST)for(const f of lFolders(l)){const i=f.items.find(x=>x.id===id);if(i){(f.copy?showCode:showView)({name:i.name,shortCode:i.value,description:i.description,copyDesc:i.copyDesc});return}}return}
  if(!isAdm())return;
  switch(a){
  case"ls_back":if(lfold)lfold=null;else lopen=null;render();break;
@@ -1137,14 +1147,14 @@ function lAct(a,id){
  case"ls_iup":case"ls_idown":go(lMut(L=>{const f=gf(L);if(!f)return"الفولدر غير موجود.";swap(f.items,f.items.findIndex(x=>x.id===id),a==="ls_iup"?-1:1)}));break;
  case"ls_idel":confirmModal("حذف هذا الكود؟","Delete",()=>go(lMut(L=>{const f=gf(L);if(!f)return"الفولدر غير موجود.";f.items=f.items.filter(x=>x.id!==id)})),"Delete Code");break;
  case"ls_iadd":case"ls_iedit":{const l=LST.find(x=>x.id===lopen),fo=l&&l.folders.find(x=>x.id===lfold);if(!fo)break;const it=a==="ls_iedit"?fo.items.find(x=>x.id===id):null;
-  formModal(it?"Edit Code":"Add Code",inp("الاسم","name",it?it.name:"","text",1)+txa("الكود / المحتوى *","value",it?it.value:"")+txa("Description (اختياري)","description",it?it.description:"")+chk(SDL,"showDesc",it&&it.showDesc),it?"Save":"Create",async d=>{
+  formModal(it?"Edit Code":"Add Code",inp("الاسم","name",it?it.name:"","text",1)+txa("الكود / المحتوى *","value",it?it.value:"")+txa("Description (اختياري)","description",it?it.description:"")+chk(SDL,"showDesc",it&&it.showDesc)+chk(CDL,"copyDesc",it&&it.copyDesc),it?"Save":"Create",async d=>{
    const n=d.name.trim(),v=d.value.trim(),ds=d.description.trim();
    if(!n||!v)return"الاسم والكود مطلوبان.";
    if(n.length>100||v.length>1000||ds.length>500)return"النص طويل جدًا.";
    const e=await lMut(L=>{const f=gf(L);if(!f)return"الفولدر غير موجود.";
     if(f.items.some(x=>norm(x.name)===norm(n)&&(!it||x.id!==it.id)))return"الاسم موجود بالفعل في الفولدر.";
-    if(it){const o=f.items.find(x=>x.id===it.id);if(!o)return"الكود غير موجود.";Object.assign(o,{name:n,value:v,description:ds,showDesc:!!d.showDesc})}
-    else f.items.push({id:uid(),name:n,value:v,description:ds,showDesc:!!d.showDesc})});
+    if(it){const o=f.items.find(x=>x.id===it.id);if(!o)return"الكود غير موجود.";Object.assign(o,{name:n,value:v,description:ds,showDesc:!!d.showDesc,copyDesc:!!d.copyDesc})}
+    else f.items.push({id:uid(),name:n,value:v,description:ds,showDesc:!!d.showDesc,copyDesc:!!d.copyDesc})});
    if(e)return e;render();toast("✓ تم الحفظ")});break}
  }}
 
@@ -1208,12 +1218,12 @@ function act(a,id){
   if(!S.categories.length){toast("أضف فئة أولًا","err");break}
   const f=a==="editcode"?allCodes().find(x=>x.k.id===id):null;
   const sel=`<div class="fld"><label>Category *</label><select name="cat">${S.categories.map(c=>`<option value="${c.id}"${(f?f.cat.id===c.id:fcat===c.id)?" selected":""}>${esc(c.name)}</option>`).join("")}</select></div>`;
-  formModal(f?"Edit Code":"Add Code",sel+inp("Code Name","name",f?f.k.name:"","text",1)+inp("Short Code","shortCode",f?f.k.shortCode:"","text",1)+txa("Description (اختياري)","description",f?f.k.description:"")+chk(SDL,"showDesc",f&&f.k.showDesc),f?"Save":"Create",d=>{
+  formModal(f?"Edit Code":"Add Code",sel+inp("Code Name","name",f?f.k.name:"","text",1)+inp("Short Code","shortCode",f?f.k.shortCode:"","text",1)+txa("Description (اختياري)","description",f?f.k.description:"")+chk(SDL,"showDesc",f&&f.k.showDesc)+chk(CDL,"copyDesc",f&&f.k.copyDesc),f?"Save":"Create",d=>{
    const n=d.name.trim(),sc=String(d.shortCode).trim(),cat=findCat(d.cat);
    if(!n||!sc)return"اسم الكود والكود مطلوبان.";if(!cat)return"الفئة غير صالحة.";
    if(cat.codes.some(x=>norm(x.name)===norm(n)&&(!f||x.id!==f.k.id)))return"اسم الكود موجود بالفعل في هذه الفئة.";
-   if(f){f.cat.codes=f.cat.codes.filter(x=>x.id!==f.k.id);f.k.name=n;f.k.shortCode=sc;f.k.description=d.description.trim();f.k.showDesc=!!d.showDesc;cat.codes.push(f.k)}
-   else cat.codes.push({id:uid(),name:n,shortCode:sc,description:d.description.trim(),showDesc:!!d.showDesc});
+   if(f){f.cat.codes=f.cat.codes.filter(x=>x.id!==f.k.id);f.k.name=n;f.k.shortCode=sc;f.k.description=d.description.trim();f.k.showDesc=!!d.showDesc;f.k.copyDesc=!!d.copyDesc;cat.codes.push(f.k)}
+   else cat.codes.push({id:uid(),name:n,shortCode:sc,description:d.description.trim(),showDesc:!!d.showDesc,copyDesc:!!d.copyDesc});
    ok()});break}
  case"delcode":confirmModal("هل أنت متأكد من حذف هذا الكود؟","Delete",()=>{S.categories.forEach(c=>c.codes=c.codes.filter(x=>x.id!==id));ok()});break;
  case"adduser":case"edituser":{const u=a==="edituser"?S.users.find(x=>x.id===id):null;
@@ -1284,7 +1294,7 @@ function act(a,id){
   const pre=ex?ex.cat.id:((S.categories.find(c=>norm(c.name)===norm(q.catName))||{}).id||"");
   const info=`<p style="margin:0 0 14px;line-height:1.8;font-size:.9rem">${ed?"طلب تعديل":"طلب إضافة"} من <b>${esc(q.by)}</b>${ed?(ex?`<br>الكود الحالي: <b>${esc(ex.k.name)}</b> <span class="ltr">(${esc(ex.k.shortCode)})</span> في «${esc(ex.cat.name)}»`:'<br><b style="color:#a82822">⚠ الكود الأصلي اتحذف أو اتغيّر</b>'):""}</p>`;
   const sel=`<div class="fld"><label>الفولدر *</label><select name="cat" onchange="document.getElementById('nfw').style.display=this.value==='__new'?'block':'none'"><option value="">— اختر الفولدر —</option>${S.categories.map(c=>`<option value="${c.id}"${pre===c.id?" selected":""}>${esc(c.name)}</option>`).join("")}<option value="__new">➕ فولدر جديد...</option></select></div><div class="fld" id="nfw" style="display:none"><label>اسم الفولدر الجديد *</label><input name="newcat"></div>`;
-  formModal(ed?"مراجعة طلب تعديل":"مراجعة طلب إضافة",info+sel+inp("Code Name","name",q.name,"text",1)+inp("Short Code","shortCode",q.shortCode,"text",1)+txa("Description (اختياري)","description",q.description)+chk(SDL,"showDesc",ex&&ex.k.showDesc),"Approve",d=>{
+  formModal(ed?"مراجعة طلب تعديل":"مراجعة طلب إضافة",info+sel+inp("Code Name","name",q.name,"text",1)+inp("Short Code","shortCode",q.shortCode,"text",1)+txa("Description (اختياري)","description",q.description)+chk(SDL,"showDesc",ex&&ex.k.showDesc)+chk(CDL,"copyDesc",ex&&ex.k.copyDesc),"Approve",d=>{
    const n=d.name.trim(),sc=String(d.shortCode).trim(),dsc=d.description.trim();
    if(!n||!sc)return"اسم الكود والكود مطلوبان.";
    if(ed&&!ex)return"الكود الأصلي مش موجود — ارفض الطلب.";
@@ -1299,9 +1309,9 @@ function act(a,id){
    S.log=S.log||[];const lg=e=>{S.log.push(Object.assign({id:uid(),t:new Date().toISOString(),by:q.by},e));if(S.log.length>150)S.log=S.log.slice(-150)};
    if(isNew)lg({a:"addFolder",c:cat.name});
    if(ex){lg({a:"editCode",c:cat.name,k:n,on:ex.k.name,o:ex.k.shortCode,n:sc});
-    if(ex.cat===cat){ex.k.name=n;ex.k.shortCode=sc;ex.k.description=dsc;ex.k.showDesc=!!d.showDesc}
-    else{ex.cat.codes=ex.cat.codes.filter(x=>x.id!==ex.k.id);ex.k.name=n;ex.k.shortCode=sc;ex.k.description=dsc;ex.k.showDesc=!!d.showDesc;cat.codes.push(ex.k)}}
-   else{lg({a:"addCode",c:cat.name,k:n,n:sc});cat.codes.push({id:uid(),name:n,shortCode:sc,description:dsc,showDesc:!!d.showDesc})}
+    if(ex.cat===cat){ex.k.name=n;ex.k.shortCode=sc;ex.k.description=dsc;ex.k.showDesc=!!d.showDesc;ex.k.copyDesc=!!d.copyDesc}
+    else{ex.cat.codes=ex.cat.codes.filter(x=>x.id!==ex.k.id);ex.k.name=n;ex.k.shortCode=sc;ex.k.description=dsc;ex.k.showDesc=!!d.showDesc;ex.k.copyDesc=!!d.copyDesc;cat.codes.push(ex.k)}}
+   else{lg({a:"addCode",c:cat.name,k:n,n:sc});cat.codes.push({id:uid(),name:n,shortCode:sc,description:dsc,showDesc:!!d.showDesc,copyDesc:!!d.copyDesc})}
    cdel.add(q.id);CREQ.list=CREQ.list.filter(x=>x.id!==q.id);ok();toast("تمت الموافقة ✓ الكود ظاهر للموظفين خلال دقيقة");
    (async()=>{await pushRemote();await flushCDel()})()});break}
  case"expjson":exportJSON();break;
