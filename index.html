@@ -552,18 +552,16 @@ html:not([data-theme=dark]) .uhead .btn.gh:hover{background:#ffffff26}
 .hact .rf.spin svg{animation:rfs .8s linear infinite}
 .hact .rf.new{background:#fff;color:#c8332b}
 .htop{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;flex-wrap:wrap}
-.hact{border-top:0;padding-top:0;margin:0;gap:10px;justify-content:flex-start;max-width:640px}
-.hact button{font-size:.95rem;padding:11px 18px}
+.hact{border-top:0;padding-top:0;margin:0;gap:8px;justify-content:flex-start;flex-wrap:nowrap}
+.hact button{font-size:.9rem;padding:10px 14px;white-space:nowrap}
+@media(max-width:820px){.hact{flex-wrap:wrap}}
 .hact svg{width:20px;height:20px}
-.hero .ccalc{margin:0 auto;width:100%;max-width:560px;box-sizing:border-box;background:#ffffff22;border:0;box-shadow:none;border-radius:18px;padding:18px 20px;color:#fff;text-align:center}
-.hero .ccalc h3{justify-content:center;color:#fff;margin-bottom:14px}
-.hero .ccalc h3 svg{color:#fff}
-.hero .ccalc label{color:#ffffffe6;text-align:center}
-.hero .ccalc .cin{background:#fff;color:#222;border:0}
-.hero .ccalc .cin:focus{outline:2px solid #ffffff99}
-.hero .ccalc .ceq{color:#fff}
-.ccalc .cnote{margin:12px 0 0;font-size:.85rem;opacity:.85}
+.ccalc{display:flex;align-items:flex-end;justify-content:center;gap:10px;margin:0 auto;width:100%;max-width:440px;box-sizing:border-box;background:#ffffff22;border-radius:14px;padding:10px 12px}
+.ccalc label{display:flex;flex-direction:column;gap:4px;flex:1;min-width:0;font-weight:600;font-size:.78rem;color:#ffffffe6;text-align:center}
+.ccalc .cin{font-family:inherit;font-size:1.05rem;font-weight:700;padding:7px 8px;border-radius:10px;border:0;background:#fff;color:#222;direction:ltr;text-align:center;width:100%;box-sizing:border-box}
+.ccalc .cin:focus{outline:2px solid #ffffff99}
 .ccalc .cin:disabled{opacity:.55;cursor:not-allowed}
+.ccalc .ceq{color:#fff;font-size:1.1rem;padding-bottom:6px}
 @media(max-width:520px){.hero .hmain h2{font-size:1.7rem}.hact{width:100%;max-width:none}.hact button{flex:1 1 44%;justify-content:center}}
 </style>
 <body>
@@ -1037,7 +1035,7 @@ function cInv(fn,y){
  if(y<=fn(0))return 0;let hi=1;while(fn(hi)<y&&hi<1e9)hi*=2;if(fn(hi)<y)return null;let lo=0;
  for(let i=0;i<100;i++){const mid=(lo+hi)/2;if(fn(mid)<y)lo=mid;else hi=mid}
  let r=Math.round(hi*100)/100;if(fn(r)<y-1e-9)r=Math.round((r+0.01)*100)/100;return r}
-const calcHTML=()=>{const on=!!CALC.fn,d=on?"":" disabled";return`<div class="card ccalc"><h3>${I.calc} حاسبة الشحن</h3><div class="crow"><label>الرصيد الصافي<input class="cin" id="cnet" inputmode="decimal" autocomplete="off" placeholder="0" value="${esc(calcV.n)}"${d}></label><span class="ceq">⇄</span><label>المبلغ المدفوع (جنيه)<input class="cin" id="cpaid" inputmode="decimal" autocomplete="off" placeholder="0" value="${esc(calcV.p)}"${d}></label></div>${on?"":'<p class="cnote">الحاسبة مش شغالة دلوقتي — المعادلة لسه ما اتضبطتش من الأدمن.</p>'}</div>`};
+const calcHTML=()=>{const on=!!CALC.fn,d=on?"":' disabled title="المعادلة لسه ما اتضبطتش من الأدمن"';return`<div class="ccalc"><label>الرصيد الصافي<input class="cin" id="cnet" inputmode="decimal" autocomplete="off" placeholder="0" value="${esc(calcV.n)}"${d}></label><span class="ceq">⇄</span><label>المبلغ المدفوع (جنيه)<input class="cin" id="cpaid" inputmode="decimal" autocomplete="off" placeholder="0" value="${esc(calcV.p)}"${d}></label></div>`};
 document.addEventListener("input",e=>{const id=e.target.id;
  if(id==="cfx"){const o=$("#cprev");if(!o)return;const v=e.target.value.trim();if(!v){o.textContent="";return}
   try{const f=cParse(v);o.style.color="var(--mut)";o.textContent="تجربة: لو عايز رصيد صافي 50 ← يدفع "+cFmt(f(50))+" جنيه | ولو دفع 100 جنيه ← الرصيد الصافي "+(cInv(f,100)==null?"—":cFmt(cInv(f,100)))}
