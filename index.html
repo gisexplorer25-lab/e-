@@ -499,6 +499,8 @@ html:not([data-theme=dark]) .uhead .btn.gh:hover{background:#ffffff26}
 .ni small{color:var(--mut);display:flex;justify-content:space-between;align-items:center;gap:8px}
 .ni .nw{background:#c8332b;color:#fff;border-radius:99px;font-size:.7rem;padding:1px 9px;font-weight:700}
 .ncell{white-space:pre-wrap;word-break:break-word}
+.nmore{color:#c8332b;cursor:pointer;font-weight:700;text-decoration:underline;white-space:nowrap}
+html[data-theme=dark] .nmore{color:#ff8a82}
 /* ===== Employee side menu + lists + description copy ===== */
 .ushell{display:flex;align-items:flex-start;max-width:1440px;margin:0 auto}
 .ushell .uwrap{flex:1;min-width:0;margin:0}
@@ -1099,9 +1101,12 @@ async function loadNotifs(){
   fresh.forEach(n=>nSeen.add(n.id));
   if(fresh.length&&!$("#modal").innerHTML)toast("🔔 "+(fresh.length>1?"وصلك "+fresh.length+" إشعارات جديدة":"وصلك إشعار جديد"))}}
 async function nPut(L){const idt=await fbToken();await putDoc("users",{notifs:{stringValue:JSON.stringify(L)}},idt,null,false);NT={list:L,ok:true}}
+const nBody=b=>{b=String(b);let c=b.split("\n").slice(0,4).join("\n").slice(0,160);if(c.length>=b.length)return esc(b);
+ if(c.length===160){const k=c.search(/\s\S*$/);if(k>100)c=c.slice(0,k)}
+ return`<span class="ns">${esc(c.trimEnd())}… <a class="nmore" data-nm>عرض المزيد</a></span><span class="nf" hidden>${esc(b)} <a class="nmore" data-nm>عرض أقل</a></span>`};
 function showNotifs(){
  const L=nMine(),rd=nRead();
- $("#modal").innerHTML=`<div class="ov"><div class="md nmd"><h3>🔔 الإشعارات</h3><div class="nlist">${L.length?L.map(n=>`<div class="ni${rd.has(n.id)?"":" new"}">${n.title?`<b>${esc(n.title)}</b>`:""}<p>${esc(n.body)}</p><small><span class="ltr">${esc(fmtL(n.t))}</span>${rd.has(n.id)?"":'<span class="nw">جديد</span>'}</small></div>`).join(""):'<div class="empty" style="padding:28px 8px">لا توجد إشعارات حتى الآن.</div>'}</div><div class="row"><button class="btn gh" data-act="close">إغلاق</button></div></div></div>`;
+ $("#modal").innerHTML=`<div class="ov"><div class="md nmd"><h3>🔔 الإشعارات</h3><div class="nlist">${L.length?L.map(n=>`<div class="ni${rd.has(n.id)?"":" new"}">${n.title?`<b>${esc(n.title)}</b>`:""}<p>${nBody(n.body)}</p><small><span class="ltr">${esc(fmtL(n.t))}</span>${rd.has(n.id)?"":'<span class="nw">جديد</span>'}</small></div>`).join(""):'<div class="empty" style="padding:28px 8px">لا توجد إشعارات حتى الآن.</div>'}</div><div class="row"><button class="btn gh" data-act="close">إغلاق</button></div></div></div>`;
  try{localStorage.setItem(nKey(),JSON.stringify(L.map(n=>n.id)))}catch(e){}
  L.forEach(n=>nSeen.add(n.id));updBell()}
 function notifPage(){
@@ -1120,7 +1125,7 @@ function nAct(a,id){
   formModal("إرسال إشعار",sel+inp("العنوان (اختياري)","title","","text")+txa("نص الإشعار *","body",""),"إرسال",async d=>{
    const title=d.title.trim(),body=d.body.trim();
    if(!body)return"اكتب نص الإشعار.";
-   if(title.length>80||body.length>500)return"النص طويل جدًا (العنوان 80 حرف، والنص 500 حرف كحد أقصى).";
+   if(title.length>120||body.length>3000)return"النص طويل جدًا (العنوان 120 حرف، والنص 3000 حرف كحد أقصى).";
    const u=d.to==="all"?null:S.users.find(x=>x.id===d.to);
    if(d.to!=="all"&&!u)return"الموظف غير موجود.";
    try{const r=await getDoc("users");if(!r)return"تعذر الاتصال بالإنترنت.";
@@ -1445,6 +1450,7 @@ document.addEventListener("keydown",e=>{
  if(moveItem(kind,gid,tr.dataset.id,f+(e.key==="ArrowUp"?-1:1))){save();render();const n=document.querySelector('.dh[data-id="'+tr.dataset.id+'"]');if(n)n.focus()}});
 document.addEventListener("click",e=>{const t=e.target.closest("[data-act]");if(!t)return;
  try{act(t.dataset.act,t.dataset.id)}catch(x){console.error(x);toast("حدث خطأ غير متوقع","err")}});
+document.addEventListener("click",e=>{const a=e.target.closest("[data-nm]");if(!a)return;e.preventDefault();const p=a.closest("p");if(!p)return;const s=p.querySelector(".ns"),f=p.querySelector(".nf");if(!s||!f)return;const open=!f.hidden;f.hidden=open;s.hidden=!open});
 document.addEventListener("input",e=>{if(e.target.id!=="uq")return;q=e.target.value;$("#ubody").classList.remove("in");$("#ubody").innerHTML=userBody();$("#qx").hidden=!q});
 document.addEventListener("change",e=>{if(e.target.dataset&&e.target.dataset.chg==="fcat"){fcat=e.target.value;render()}});
 
