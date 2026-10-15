@@ -551,6 +551,11 @@ html:not([data-theme=dark]) .uhead .btn.gh:hover{background:#ffffff26}
 .hact svg{width:18px;height:18px}
 .hact .rf.spin svg{animation:rfs .8s linear infinite}
 .hact .rf.new{background:#fff;color:#c8332b}
+.hact{border-top:0;padding-top:0;margin:16px 0 20px}
+.hact button{background:var(--card);color:var(--tx);box-shadow:0 0 0 1px var(--bd)}
+.hact button:hover{background:#c8332b14}
+.hact button svg{color:#c8332b}
+.hact .rf.new{background:#c8332b;color:#fff;box-shadow:none}.hact .rf.new svg{color:#fff}
 @media(max-width:520px){.hero .hmain h2{font-size:1.7rem}.hact button{flex:1 1 44%;justify-content:center}}
 </style>
 <body>
@@ -1077,7 +1082,7 @@ function showView(k){closePop();const sv=String(k.shortCode),hd=String(k.descrip
  $("#pop").innerHTML=`<div class="pov" data-act="popclose"><div class="pbox nocp"><div class="pnm">${esc(k.name)}</div><div class="big${sv.length>18||sv.includes("\n")?" sm":""}">${esc(sv)}</div>${hd?`<div class="pdesc"><div class="pdt">${esc(hd)}</div></div>`:""}<div class="pok" style="color:var(--mut)">للعرض فقط — النسخ غير مفعّل</div><div class="pbar"><i style="animation-duration:10000ms"></i></div></div></div>`;
  popT=setTimeout(closePop,10000)}
 function heroHTML(){const un=unreadN();
- return`<div class="hero"><div class="hmain"><small>مرحبًا 👋</small><h2>${esc(session.name)}</h2></div><div class="hst"><div><b>${S.categories.length}</b><span>فولدر</span></div><div><b>${allCodes().length}</b><span>كود</span></div><button data-act="nopen"><b data-un>${un}</b><span>إشعار جديد</span></button></div><div class="hact"><button data-act="nopen">${I.bell}<span>الإشعارات</span></button>${sugOK()?`<button data-act="sugadd">${I.plus}<span>إرسال كود للأدمن</span></button>`:""}<button class="rf${updAvail?" new":""}" id="rfb" data-act="urefresh">${RFI}<span>تحديث</span></button><button data-act="theme">${TGI}<span>الوضع الداكن</span></button><button data-act="logout">${I.logout}<span>تسجيل خروج</span></button></div></div>`}
+ return`<div class="hero"><div class="hmain"><small>مرحبًا 👋</small><h2>${esc(session.name)}</h2></div><div class="hst"><div><b>${S.categories.length}</b><span>فولدر</span></div><div><b>${allCodes().length}</b><span>كود</span></div><button data-act="nopen"><b data-un>${un}</b><span>إشعار جديد</span></button></div></div><div class="hact"><button data-act="nopen">${I.bell}<span>الإشعارات</span></button>${sugOK()?`<button data-act="sugadd">${I.plus}<span>إرسال كود للأدمن</span></button>`:""}<button class="rf${updAvail?" new":""}" id="rfb" data-act="urefresh">${RFI}<span>تحديث</span></button><button data-act="theme">${TGI}<span>الوضع الداكن</span></button><button data-act="logout">${I.logout}<span>تسجيل خروج</span></button></div>`}
 function uSide(){
  if(uview!=="codes"&&!LST.some(x=>x.id===uview))uview="codes";
  return`<aside class="uside${uside?" open":""}"><a class="band${uview==="codes"?" on":""}" data-act="us_home">${I.dash}<span>الرئيسية</span></a>${LST.map(l=>`<a class="band${uview===l.id?" on":""}" data-act="us_view" data-id="${l.id}">${I.list}<span>${esc(l.name)}</span><em>${lCnt(l)}</em></a>`).join("")}</aside><div class="uov${uside?" open":""}" data-act="us_menu"></div>`}
