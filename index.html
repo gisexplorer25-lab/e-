@@ -556,6 +556,15 @@ html:not([data-theme=dark]) .uhead .btn.gh:hover{background:#ffffff26}
 .hact button:hover{background:#c8332b14}
 .hact button svg{color:#c8332b}
 .hact .rf.new{background:#c8332b;color:#fff;box-shadow:none}.hact .rf.new svg{color:#fff}
+.ccalc{margin:0 0 20px}
+.ccalc h3{margin:0 0 14px;font-size:1.05rem;display:flex;align-items:center;gap:8px}
+.ccalc h3 svg{width:20px;height:20px;color:#c8332b}
+.ccalc .crow{display:grid;grid-template-columns:1fr auto 1fr;gap:12px;align-items:end}
+.ccalc label{display:flex;flex-direction:column;gap:6px;font-weight:600;font-size:.88rem;color:var(--mut)}
+.ccalc .cin{font-family:inherit;font-size:1.3rem;font-weight:700;padding:12px 14px;border-radius:12px;border:1px solid var(--bd);background:var(--card);color:var(--tx);direction:ltr;text-align:center;width:100%;box-sizing:border-box}
+.ccalc .cin:focus{outline:2px solid #c8332b66;border-color:#c8332b}
+.ccalc .ceq{font-size:1.4rem;color:#c8332b;padding-bottom:12px}
+@media(max-width:520px){.ccalc .crow{grid-template-columns:1fr}.ccalc .ceq{display:none}}
 @media(max-width:520px){.hero .hmain h2{font-size:1.7rem}.hact button{flex:1 1 44%;justify-content:center}}
 </style>
 <body>
@@ -627,7 +636,7 @@ async function getDoc(n){try{
  const r=await fetch(DOCS+n+"?key="+FB.apiKey,{cache:"no-store"});
  if(r.status===404)return{none:true,t:"",ut:null,e:"",n:"",l:""};if(!r.ok)return null;
  const j=await r.json(),f=j.fields||{};
- return{t:(f.json&&f.json.stringValue)||"",ut:j.updateTime||null,e:Object.keys((f.editors&&f.editors.mapValue&&f.editors.mapValue.fields)||{}).sort().join(","),n:(f.notifs&&f.notifs.stringValue)||"",l:(f.lists&&f.lists.stringValue)||""}}catch(e){return null}}
+ return{t:(f.json&&f.json.stringValue)||"",ut:j.updateTime||null,e:Object.keys((f.editors&&f.editors.mapValue&&f.editors.mapValue.fields)||{}).sort().join(","),n:(f.notifs&&f.notifs.stringValue)||"",l:(f.lists&&f.lists.stringValue)||"",c:(f.calc&&f.calc.stringValue)||""}}catch(e){return null}}
 async function fetchRemote(om){
  const [c,u]=await Promise.all([getDoc("main"),om?Promise.resolve(null):getDoc("users")]);
  if(!c||(!om&&!u))return null;
@@ -968,12 +977,13 @@ function userView(){
 
 /* ----- Admin ----- */
 function adminView(){
- const nav=[["dash",I.dash,"Dashboard"],["cats",I.folder,"Categories"],["codes",I.hash,"Short Codes"],["creq",I.inbox,"Code Requests"],["notif",I.bell,"Notifications"],["lists",I.list,"Lists"],["users",I.users,"Users"],["log",I.activity,"Activity"],["settings",I.gear,"Settings"]];
+ const nav=[["dash",I.dash,"Dashboard"],["cats",I.folder,"Categories"],["codes",I.hash,"Short Codes"],["creq",I.inbox,"Code Requests"],["notif",I.bell,"Notifications"],["lists",I.list,"Lists"],...(CALC.ok&&!CALC.f?[["calc",I.calc,"Charge Calculator"]]:[]),["users",I.users,"Users"],["log",I.activity,"Activity"],["settings",I.gear,"Settings"]];
  const side=`<div class="side${menu?" open":""}"><div class="sbrand"><img src="${LOGO_W}" alt="etisalat and"><div><b>Short Code Assistant</b><small>Admin Panel</small></div></div>${nav.map(n=>`<a class="${page===n[0]?"on":""}" data-act="nav" data-id="${n[0]}">${n[1]}<span>${n[2]}</span>${(n[0]==="users"?pendCount():n[0]==="creq"?cpend():0)?`<em class="nb">${n[0]==="users"?pendCount():cpend()}</em>`:""}</a>`).join("")}<div class="sp"></div><a class="tgl" data-act="theme">${TGI}<span class="lm">Dark Mode</span><span class="ld">Light Mode</span></a><div class="suser">${esc(session.name)}</div><a class="lo" data-act="logout">${I.logout}<span>Logout</span></a></div>`;
  $("#app").innerHTML=`<div class="top"><button data-act="menu" aria-label="Menu">${I.menu}</button><img src="${LOGO_W}" alt="etisalat and"><b>Short Code Assistant</b><button class="tg" data-act="theme" aria-label="Dark / Light mode">${TGI}</button></div><div class="shell">${side}<div class="main"><div id="syncbar">${syncHTML()}</div>${page==="users"&&pendCount()?reqSection():""}${adminPage()}${page==="users"&&!pendCount()?reqSection():""}</div></div>`}
 const qL=t=>"\xab"+esc(t)+"\xbb",fmtL=t=>{const d=new Date(t);return isNaN(d)?"":d.toLocaleString("en-GB",{hour12:false})};
 const logTxt=e=>e.a==="addFolder"?"أضاف فولدر "+qL(e.c):e.a==="addCode"?"أضاف كود "+qL(e.k)+' <span class="ltr">('+esc(e.n)+")</span> في فولدر "+qL(e.c):e.a==="editCode"?"عدّل كود "+qL(e.on&&e.on!==e.k?e.on+" ← "+e.k:e.k)+" في "+qL(e.c)+(e.o!==e.n?' <span class="ltr">'+esc(e.o)+" → "+esc(e.n)+"</span>":""):esc(e.a);
 function adminPage(){
+ if(page==="calc")return calcAdminPage();
  if(page==="notif")return notifPage();
  if(page==="lists")return listsPage();
  if(page==="creq")return creqPage();
@@ -994,8 +1004,62 @@ function adminPage(){
  if(page==="log"){const L=(S.log||[]).slice().reverse(),q=t=>"«"+esc(t)+"»",fmt=t=>{const d=new Date(t);return isNaN(d)?"":d.toLocaleString("en-GB",{hour12:false})};
   const tx=e=>e.a==="addFolder"?"أضاف فولدر "+q(e.c):e.a==="addCode"?"أضاف كود "+q(e.k)+' <span class="ltr">('+esc(e.n)+")</span> في فولدر "+q(e.c):e.a==="editCode"?"عدّل كود "+q(e.on&&e.on!==e.k?e.on+" ← "+e.k:e.k)+" في "+q(e.c)+(e.o!==e.n?' <span class="ltr">'+esc(e.o)+" → "+esc(e.n)+"</span>":""):esc(e.a);
   return`<div class="hd"><h2>Activity</h2><div class="row"><button class="btn gh" data-act="logref">⟳ Refresh</button><button class="btn rd" data-act="logclr">Clear Log</button></div></div><div class="tw">${L.length?`<table><tr><th>الوقت</th><th>الموظف</th><th>العملية</th></tr>${L.map(e=>`<tr><td class="ltr">${esc(fmt(e.t))}</td><td>${esc(e.by)}</td><td>${tx(e)}</td></tr>`).join("")}</table>`:'<div class="empty">لا توجد تعديلات من الموظفين حتى الآن.</div>'}</div>`}
- if(page==="settings")return`<div class="hd"><h2>Settings</h2></div><div class="card"><h3>الاتصال بـ Firebase</h3><p style="margin-bottom:12px;color:var(--mut);line-height:1.9;font-size:.9rem">المشروع: <b class="ltr">${esc(FB.projectId)}</b><br>حساب الأدمن: <b class="ltr">${esc(tok?tok.email:"")}</b><br>أي تعديل بيتحفظ تلقائيًا ويظهر للموظفين خلال دقيقة. لتغيير كلمة مرور الأدمن: Firebase Console ← Authentication.</p><div class="row" style="justify-content:flex-start;flex-wrap:wrap"><button class="btn gr" data-act="retry">Save Now</button><button class="btn gh" data-act="discard">Reload From Server</button></div></div><div class="card"><h3>نسخ احتياطي</h3><p style="margin-bottom:12px;color:var(--mut);line-height:1.7;font-size:.9rem">Export Backup: ملف JSON بكل البيانات. Import Backup: يستبدل البيانات الحالية ويحفظها على Firebase فتظهر للجميع.</p><div class="row" style="flex-wrap:wrap;justify-content:flex-start"><button class="btn" data-act="expjson">⬇ Export Backup</button><button class="btn gh" data-act="impjson">⬆ Import Backup</button></div><input type="file" id="impf" accept=".json,application/json" hidden></div><div class="card"><h3>Excel / CSV</h3><p style="margin-bottom:12px;color:var(--mut);line-height:1.8;font-size:.9rem">ارفع ملف Excel أو CSV بأعمدة: <b class="ltr">Folder, Name, Code, Description</b> وهيتضاف كل اللي فيه مرة واحدة (الأكواد الحالية مش بتتأثر). التصدير بيطلّع كل الأكواد كنسخة احتياطية.</p><div class="row" style="flex-wrap:wrap;justify-content:flex-start"><button class="btn" data-act="impx">⬆ Import Excel/CSV</button><button class="btn gh" data-act="expx">⬇ Export Excel</button><button class="btn gh" data-act="expcsv">⬇ Export CSV</button><button class="btn gh" data-act="xltpl">Template</button></div></div><div class="card"><h3>Reset All Data</h3><p style="margin-bottom:12px;color:var(--mut)">حذف جميع الفئات والأكواد والمستخدمين (من Firebase أيضًا).</p><button class="btn rd" data-act="reset">Reset All Data</button></div>`;
+ if(page==="settings")return`<div class="hd"><h2>Settings</h2></div><div class="card"><h3>الاتصال بـ Firebase</h3><p style="margin-bottom:12px;color:var(--mut);line-height:1.9;font-size:.9rem">المشروع: <b class="ltr">${esc(FB.projectId)}</b><br>حساب الأدمن: <b class="ltr">${esc(tok?tok.email:"")}</b><br>أي تعديل بيتحفظ تلقائيًا ويظهر للموظفين خلال دقيقة. لتغيير كلمة مرور الأدمن: Firebase Console ← Authentication.</p><div class="row" style="justify-content:flex-start;flex-wrap:wrap"><button class="btn gr" data-act="retry">Save Now</button><button class="btn gh" data-act="discard">Reload From Server</button></div></div><div class="card"><h3>نسخ احتياطي</h3><p style="margin-bottom:12px;color:var(--mut);line-height:1.7;font-size:.9rem">Export Backup: ملف JSON بكل البيانات. Import Backup: يستبدل البيانات الحالية ويحفظها على Firebase فتظهر للجميع.</p><div class="row" style="flex-wrap:wrap;justify-content:flex-start"><button class="btn" data-act="expjson">⬇ Export Backup</button><button class="btn gh" data-act="impjson">⬆ Import Backup</button></div><input type="file" id="impf" accept=".json,application/json" hidden></div><div class="card"><h3>Excel / CSV</h3><p style="margin-bottom:12px;color:var(--mut);line-height:1.8;font-size:.9rem">ارفع ملف Excel أو CSV بأعمدة: <b class="ltr">Folder, Name, Code, Description</b> وهيتضاف كل اللي فيه مرة واحدة (الأكواد الحالية مش بتتأثر). التصدير بيطلّع كل الأكواد كنسخة احتياطية.</p><div class="row" style="flex-wrap:wrap;justify-content:flex-start"><button class="btn" data-act="impx">⬆ Import Excel/CSV</button><button class="btn gh" data-act="expx">⬇ Export Excel</button><button class="btn gh" data-act="expcsv">⬇ Export CSV</button><button class="btn gh" data-act="xltpl">Template</button></div></div>${CALC.f?`<div class="card"><h3>حاسبة الشحن</h3><p style="margin-bottom:12px;color:var(--mut);line-height:1.8;font-size:.9rem">المعادلة الحالية: <b class="ltr">${esc(CALC.f)}</b><br>لو عايز تغيّرها اعمل Reset وهتظهر صفحة الإعداد تاني.</p><button class="btn gh" data-act="calcreset">Reset Formula</button></div>`:""}<div class="card"><h3>Reset All Data</h3><p style="margin-bottom:12px;color:var(--mut)">حذف جميع الفئات والأكواد والمستخدمين (من Firebase أيضًا).</p><button class="btn rd" data-act="reset">Reset All Data</button></div>`;
  return""}
+
+/* ===== Charge calculator (formula saved once by admin in Firestore doc "users", field "calc") ===== */
+I.calc=_i('<rect x="5" y="3" width="14" height="18" rx="2"/><path d="M8 7h8M8 12h.01M12 12h.01M16 12h.01M8 16h.01M12 16h.01M16 16h.01"/>');
+let CALC={f:"",fn:null,ok:false},calcV={p:"",n:""};
+function cNorm(s){return String(s==null?"":s).replace(/[٠-٩]/g,d=>"٠١٢٣٤٥٦٧٨٩".indexOf(d)).replace(/[۰-۹]/g,d=>"۰۱۲۳۴۵۶۷۸۹".indexOf(d)).replace(/[٫]/g,".").replace(/[×]/g,"*").replace(/[÷]/g,"/").replace(/[٪]/g,"%").replace(/[،]/g,",")}
+function cParse(src){
+ const s=cNorm(src).trim();if(!s)throw new Error("اكتب المعادلة.");if(s.length>200)throw new Error("المعادلة طويلة جدًا.");
+ const tk=[];const re=/\s*(?:(\d+\.?\d*|\.\d+)|([A-Za-z_]+)|(.))/gy;let m;
+ while(re.lastIndex<s.length&&(m=re.exec(s))){if(m[1]!==undefined)tk.push({t:"n",v:parseFloat(m[1])});else if(m[2]!==undefined)tk.push({t:"i",v:m[2].toLowerCase()});else if("+-*/^(),%".includes(m[3]))tk.push({t:"o",v:m[3]});else throw new Error("رمز غير مسموح في المعادلة: "+m[3])}
+ let p=0;const pk=()=>tk[p],nx=()=>tk[p++],isO=v=>pk()&&pk().t==="o"&&pk().v===v;
+ const FN={floor:Math.floor,ceil:Math.ceil,round:Math.round,abs:Math.abs,min:Math.min,max:Math.max};
+ function ex(){let l=tm();while(isO("+")||isO("-")){const o=nx().v,r=tm(),a=l;l=o==="+"?x=>a(x)+r(x):x=>a(x)-r(x)}return l}
+ function tm(){let l=un();while(isO("*")||isO("/")){const o=nx().v,r=un(),a=l;l=o==="*"?x=>a(x)*r(x):x=>a(x)/r(x)}return l}
+ function un(){if(isO("-")){nx();const a=un();return x=>-a(x)}if(isO("+")){nx();return un()}return pw()}
+ function pw(){let b=po();if(isO("^")){nx();const e=un(),a=b;return x=>Math.pow(a(x),e(x))}return b}
+ function po(){let a=pr();while(isO("%")){nx();const b=a;a=x=>b(x)/100}return a}
+ function pr(){const k=nx();if(!k)throw new Error("المعادلة ناقصة.");
+  if(k.t==="n"){const v=k.v;return()=>v}
+  if(k.t==="i"){if(k.v==="x")return x=>x;const f=FN[k.v];if(!f)throw new Error("كلمة غير معروفة: "+k.v+" (استخدم x للمبلغ المدفوع)");
+   if(!isO("("))throw new Error("ناقص قوس بعد "+k.v);nx();const args=[ex()];while(isO(",")){nx();args.push(ex())}if(!isO(")"))throw new Error("ناقص قوس إغلاق.");nx();return x=>f(...args.map(g=>g(x)))}
+  if(k.t==="o"&&k.v==="("){const a=ex();if(!isO(")"))throw new Error("ناقص قوس إغلاق.");nx();return a}
+  throw new Error("المعادلة غير صحيحة قرب: "+k.v)}
+ const fn=ex();if(p<tk.length)throw new Error("المعادلة غير صحيحة قرب: "+tk[p].v);
+ let prev=-Infinity;for(const v of [0,1,5,10,20,50,100,200,500,1000,5000]){const r=fn(v);if(!isFinite(r))throw new Error("المعادلة مش بتدّي رقم صحيح لما المبلغ = "+v+".");if(r<prev-1e-9)throw new Error("الرصيد الصافي لازم يزيد كل ما المبلغ المدفوع يزيد.");prev=r}
+ if(!s.toLowerCase().includes("x"))throw new Error("لازم تستخدم x (المبلغ المدفوع) في المعادلة.");
+ return fn}
+const cNum=s=>{s=cNorm(s).replace(/\s/g,"");if(!/^(\d+\.?\d*|\.\d+)$/.test(s))return null;const v=parseFloat(s);return isFinite(v)?v:null};
+const cFmt=n=>String(Math.round(n*100)/100);
+function cInv(fn,y){
+ if(y<=fn(0))return 0;let hi=1;while(fn(hi)<y&&hi<1e9)hi*=2;if(fn(hi)<y)return null;let lo=0;
+ for(let i=0;i<100;i++){const mid=(lo+hi)/2;if(fn(mid)<y)lo=mid;else hi=mid}
+ let r=Math.round(hi*100)/100;if(fn(r)<y-1e-9)r=Math.round((r+0.01)*100)/100;return r}
+const calcHTML=()=>CALC.fn?`<div class="card ccalc"><h3>${I.calc} حاسبة الشحن</h3><div class="crow"><label>المبلغ المدفوع (جنيه)<input class="cin" id="cpaid" inputmode="decimal" autocomplete="off" placeholder="0" value="${esc(calcV.p)}"></label><span class="ceq">⇄</span><label>الرصيد الصافي<input class="cin" id="cnet" inputmode="decimal" autocomplete="off" placeholder="0" value="${esc(calcV.n)}"></label></div></div>`:"";
+document.addEventListener("input",e=>{const id=e.target.id;
+ if(id==="cfx"){const o=$("#cprev");if(!o)return;const v=e.target.value.trim();if(!v){o.textContent="";return}
+  try{const f=cParse(v);o.style.color="var(--mut)";o.textContent="تجربة: لو دفع 100 جنيه ← الرصيد الصافي "+cFmt(f(100))+" | ولو عايز رصيد صافي 100 ← يدفع "+(cInv(f,100)==null?"—":cFmt(cInv(f,100)))+" جنيه"}
+  catch(x){o.style.color="#c8332b";o.textContent=x.message}return}
+ if(id!=="cpaid"&&id!=="cnet")return;const fn=CALC.fn;if(!fn)return;
+ const paid=id==="cpaid",o=$(paid?"#cnet":"#cpaid"),v=cNum(e.target.value);
+ if(paid)calcV.p=e.target.value;else calcV.n=e.target.value;
+ let out="";if(v!==null){const r=paid?fn(v):cInv(fn,v);if(r!=null&&isFinite(r))out=cFmt(r)}
+ if(o)o.value=out;if(paid)calcV.n=out;else calcV.p=out});
+function calcAdminPage(){
+ if(CALC.f)return'<div class="hd"><h2>Charge Calculator</h2></div><div class="empty">تم ضبط المعادلة بالفعل.</div>';
+ return`<div class="hd"><h2>Charge Calculator</h2></div><div class="card" style="max-width:760px"><h3>معادلة حاسبة الشحن</h3><p style="margin-bottom:12px;color:var(--mut);line-height:1.9;font-size:.9rem">اكتب المعادلة اللي بتحسب <b>الرصيد الصافي</b> من <b>المبلغ المدفوع</b>. استخدم <b class="ltr">x</b> للمبلغ المدفوع بالجنيه. أمثلة: <span class="ltr">x * 0.855</span> — <span class="ltr">x - x * 14%</span> — <span class="ltr">(x - 1) * 0.9</span>. الحاسبة بتشتغل في الاتجاهين تلقائيًا عند الموظفين. بعد الحفظ الصفحة دي هتختفي من عندك.</p><div class="fld"><label>المعادلة *</label><input id="cfx" class="ltr" placeholder="x * 0.855" autocomplete="off"></div><div id="cprev" style="margin:10px 0 4px;font-size:.88rem;line-height:1.8;color:var(--mut)"></div><div class="row" style="justify-content:flex-start;margin-top:12px"><button class="btn" data-act="calcsave">Save Formula</button></div></div>`}
+async function calcSave(){
+ const el=$("#cfx"),v=el?el.value.trim():"";let fn;
+ try{fn=cParse(v)}catch(x){toast(x.message,"err");return}
+ try{const idt=await fbToken();await putDoc("users",{calc:{stringValue:JSON.stringify({f:v})}},idt,null,false);
+  CALC={f:v,fn:fn,ok:true};page="dash";render();toast("✓ تم حفظ المعادلة — الحاسبة شغالة عند الموظفين")}
+ catch(x){console.error(x);toast(fbMsg(x),"err")}}
+function calcReset(){confirmModal("هتتمسح معادلة الحاسبة وهتختفي من عند الموظفين لحد ما تضبط معادلة جديدة. متأكد؟","Reset Formula",async()=>{
+ try{const idt=await fbToken();await putDoc("users",{calc:{stringValue:JSON.stringify({f:""})}},idt,null,false);CALC={f:"",fn:null,ok:true};page="calc";render();toast("تم مسح المعادلة — اكتب معادلة جديدة")}
+ catch(x){console.error(x);toast(fbMsg(x),"err")}},"Reset Formula")}
 
 /* ===== Notifications (stored in Firestore doc shortcodes/users, field "notifs") ===== */
 I.bell=_i('<path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9M13.7 21a2 2 0 0 1-3.4 0"/>');
@@ -1011,8 +1075,10 @@ async function loadNotifs(){
  const r=await getDoc("users");if(!r)return;
  const L=nParse(r.n),ch=!NT.ok||JSON.stringify(L)!==JSON.stringify(NT.list);NT={list:L,ok:true};
  const LL=lParse(r.l),lch=!LOK||JSON.stringify(LL)!==JSON.stringify(LST);LST=LL;LOK=true;
- if(isAdm()){if((ch&&page==="notif"||lch&&page==="lists")&&!$("#modal").innerHTML)render();return}
- if(session&&session.role==="user"){if(lch&&!$("#modal").innerHTML&&document.activeElement!==$("#uq"))render();updBell();
+ let CF="";try{CF=String((JSON.parse(r.c||"{}")||{}).f||"")}catch(e){}
+ const cch=!CALC.ok||CF!==CALC.f;CALC.ok=true;if(cch){CALC.f=CF;CALC.fn=null;if(CF){try{CALC.fn=cParse(CF)}catch(e){console.error(e)}}}
+ if(isAdm()){if((ch&&page==="notif"||lch&&page==="lists"||cch)&&!$("#modal").innerHTML&&!(document.activeElement&&document.activeElement.id==="cfx"))render();return}
+ if(session&&session.role==="user"){if((lch||cch)&&!$("#modal").innerHTML&&document.activeElement!==$("#uq")&&!(document.activeElement&&document.activeElement.classList.contains("cin")))render();updBell();
   const rd=nRead(),fresh=nMine().filter(n=>!rd.has(n.id)&&!nSeen.has(n.id));
   fresh.forEach(n=>nSeen.add(n.id));
   if(fresh.length&&!$("#modal").innerHTML)toast("🔔 "+(fresh.length>1?"وصلك "+fresh.length+" إشعارات جديدة":"وصلك إشعار جديد"))}}
@@ -1082,7 +1148,7 @@ function showView(k){closePop();const sv=String(k.shortCode),hd=String(k.descrip
  $("#pop").innerHTML=`<div class="pov" data-act="popclose"><div class="pbox nocp"><div class="pnm">${esc(k.name)}</div><div class="big${sv.length>18||sv.includes("\n")?" sm":""}">${esc(sv)}</div>${hd?`<div class="pdesc"><div class="pdt">${esc(hd)}</div></div>`:""}<div class="pok" style="color:var(--mut)">للعرض فقط — النسخ غير مفعّل</div><div class="pbar"><i style="animation-duration:10000ms"></i></div></div></div>`;
  popT=setTimeout(closePop,10000)}
 function heroHTML(){const un=unreadN();
- return`<div class="hero"><div class="hmain"><small>مرحبًا 👋</small><h2>${esc(session.name)}</h2></div><div class="hst"><div><b>${S.categories.length}</b><span>فولدر</span></div><div><b>${allCodes().length}</b><span>كود</span></div><button data-act="nopen"><b data-un>${un}</b><span>إشعار جديد</span></button></div></div><div class="hact"><button data-act="nopen">${I.bell}<span>الإشعارات</span></button>${sugOK()?`<button data-act="sugadd">${I.plus}<span>إرسال كود للأدمن</span></button>`:""}<button class="rf${updAvail?" new":""}" id="rfb" data-act="urefresh">${RFI}<span>تحديث</span></button><button data-act="theme">${TGI}<span>الوضع الداكن</span></button><button data-act="logout">${I.logout}<span>تسجيل خروج</span></button></div>`}
+ return`<div class="hero"><div class="hmain"><small>مرحبًا 👋</small><h2>${esc(session.name)}</h2></div><div class="hst"><div><b>${S.categories.length}</b><span>فولدر</span></div><div><b>${allCodes().length}</b><span>كود</span></div><button data-act="nopen"><b data-un>${un}</b><span>إشعار جديد</span></button></div></div><div class="hact"><button data-act="nopen">${I.bell}<span>الإشعارات</span></button>${sugOK()?`<button data-act="sugadd">${I.plus}<span>إرسال كود للأدمن</span></button>`:""}<button class="rf${updAvail?" new":""}" id="rfb" data-act="urefresh">${RFI}<span>تحديث</span></button><button data-act="theme">${TGI}<span>الوضع الداكن</span></button><button data-act="logout">${I.logout}<span>تسجيل خروج</span></button></div>`+calcHTML()}
 function uSide(){
  if(uview!=="codes"&&!LST.some(x=>x.id===uview))uview="codes";
  return`<aside class="uside${uside?" open":""}"><a class="band${uview==="codes"?" on":""}" data-act="us_home">${I.dash}<span>الرئيسية</span></a>${LST.map(l=>`<a class="band${uview===l.id?" on":""}" data-act="us_view" data-id="${l.id}">${I.list}<span>${esc(l.name)}</span><em>${lCnt(l)}</em></a>`).join("")}</aside><div class="uov${uside?" open":""}" data-act="us_menu"></div>`}
@@ -1165,12 +1231,13 @@ function lAct(a,id){
 
 /* ===== Actions ===== */
 function act(a,id){
+ if(a==="calcsave"){calcSave();return}if(a==="calcreset"){calcReset();return}
  if(a==="nopen"||a==="nref"||a==="nsend"||a==="ndel"){nAct(a,id);return}
  if(/^(ls_|us_)/.test(a)||a==="cdesc"||a==="cdescp"||a==="litem"){lAct(a,id);return}
  const ok=()=>{save();render()};
  switch(a){
  case"close":closeModal();break;
- case"logout":updAvail=false;lmode="in";closePop();q="";tok=null;session=null;ucat=ucode=null;menu=false;closeModal();render();break;
+ case"logout":updAvail=false;calcV={p:"",n:""};lmode="in";closePop();q="";tok=null;session=null;ucat=ucode=null;menu=false;closeModal();render();break;
  case"theme":{const d=document.documentElement,n=d.dataset.theme==="dark"?"light":"dark";d.dataset.theme=n;try{localStorage.setItem("ShortCodeAssistant_theme",n)}catch(e){}break}
  case"reqref":loadReqs();toast("جاري التحديث");break;
  case"copyrules":copyText(($("#rulesTx")||{}).textContent||"").then(o=>toast(o?"تم نسخ القواعد":"تعذر النسخ",o?"":"err"));break;
